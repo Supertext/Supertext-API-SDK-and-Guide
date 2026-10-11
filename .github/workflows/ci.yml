@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["18", "20", "22"]
+        node: ["22", "24"]
     defaults:
       run:
         working-directory: sdk/typescript
@@ -41,6 +41,30 @@ jobs:
         working-directory: .
         run: node stand-in/conformance.mjs -- node sdk/typescript/examples/conformance.mjs
       - run: npm pack --dry-run
+
+  typescript-older-node:
+    # The SDK supports Node >= 18, but its test tooling (Vitest 5) needs Node 22.12+.
+    # On older Node, build the package and run the conformance scenarios against it.
+    name: TypeScript runtime (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["18", "20"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Build
+        working-directory: sdk/typescript
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+      - name: Conformance
+        run: node stand-in/conformance.mjs -- node sdk/typescript/examples/conformance.mjs
 
   php:
     name: PHP ${{ matrix.php }}

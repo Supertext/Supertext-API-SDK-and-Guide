@@ -37,7 +37,7 @@ To change behaviour: change the vector (or add one), then every SDK and its test
 | .NET | `dotnet build sdk/dotnet -warnaserror && dotnet test sdk/dotnet`, `dotnet build sdk/dotnet/examples/Conformance -c Release`, then `node stand-in/conformance.mjs -- dotnet sdk/dotnet/examples/Conformance/bin/Release/net8.0/Conformance.dll` |
 | Java | `cd sdk/java && mvn -B verify`, then `node ../../stand-in/conformance.mjs -- java -cp target/classes examples/Conformance.java` |
 
-CI matrix: Node 18/20/22, PHP 8.1–8.4 (plus PHP 8.3 without ext-curl, which only the built-in transport needs), Python 3.10–3.13, .NET 8, Java 11/17/21.
+CI matrix: Node 22/24 (tests; Node 18/20: build and conformance), PHP 8.1–8.4 (plus PHP 8.3 without ext-curl, which only the built-in transport needs), Python 3.10–3.13, .NET 8, Java 11/17/21.
 
 Nothing in CI talks to the live API. Before a release, run each SDK's conformance program once against the live API with a test key (`SUPERTEXT_API_URL=https://api.supertext.com/v1/`, `SUPERTEXT_API_KEY=…`, a request with a few real sentences on stdin) and check the translations.
 
@@ -53,7 +53,7 @@ Nothing in CI talks to the live API. Before a release, run each SDK's conformanc
 
 Dependabot (`.github/dependabot.yml`) checks npm (`sdk/typescript`), Composer (root), NuGet (`sdk/dotnet`), Maven (`sdk/java`) and GitHub Actions weekly and groups minor and patch updates. Python has no pinned dev dependencies (CI installs the current pytest, mypy, ruff). Ignored major updates, because they would drop a supported platform:
 
-- `@types/node`, `vitest`: the TypeScript SDK supports Node 18.
+- `@types/node`: the TypeScript SDK supports Node 18, so its types must match Node 18. The test tooling itself follows current Node (Vitest 5 needs Node 22.12+): CI tests on Node 22/24 and runs the built package's conformance scenarios on Node 18/20.
 - `typescript` 7 (the native compiler): move deliberately.
 - `phpunit/phpunit` 12: needs PHP 8.3; the PHP SDK supports 8.1.
 - JUnit 6: needs Java 17; the Java SDK supports Java 11.

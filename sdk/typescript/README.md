@@ -139,6 +139,8 @@ const client = new SupertextClient('test-key', { baseUrl: 'http://127.0.0.1:8765
 
 ## Development
 
+Working on the SDK needs Node 22.12+ (Vitest 5); the published package runs on Node 18+.
+
 ```sh
 cd sdk/typescript
 npm ci

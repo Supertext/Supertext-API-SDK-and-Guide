@@ -6,11 +6,9 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     ignore:
-      # The SDK supports Node >= 18: types must match the oldest supported Node, and
-      # the test tooling must still run on it (see docs/DEVELOPER.md → Dependency updates).
+      # The SDK supports Node >= 18: types must match the oldest supported Node
+      # (see docs/DEVELOPER.md → Dependency updates).
       - dependency-name: "@types/node"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "vitest"
         update-types: ["version-update:semver-major"]
       # TypeScript 7 is the native compiler; move to it deliberately
       - dependency-name: "typescript"
