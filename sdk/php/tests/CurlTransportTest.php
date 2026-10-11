@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Supertext\Sdk\Tests;
 
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Supertext\Sdk\Client;
 use Supertext\Sdk\SupertextException;
@@ -11,6 +12,7 @@ use Supertext\Sdk\SupertextException;
 /**
  * The default transport without a server (the stand-in conformance run covers real answers).
  */
+#[RequiresPhpExtension('curl')]
 final class CurlTransportTest extends TestCase
 {
     public function testConnectionRefusedIsATransportError(): void

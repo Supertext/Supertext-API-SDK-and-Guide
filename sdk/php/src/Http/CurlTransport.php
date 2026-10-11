@@ -6,9 +6,28 @@ namespace Supertext\Sdk\Http;
 
 /**
  * Default transport, using ext-curl. Honours the usual proxy environment variables (libcurl does).
+ *
+ * ext-curl is only needed for this class: integrations that pass their own HttpTransport to the
+ * Client (a framework's HTTP client) don't need it.
  */
 final class CurlTransport implements HttpTransport
 {
+    public function __construct()
+    {
+        if (!self::isAvailable()) {
+            throw new \LogicException(
+                'The PHP curl extension is not loaded. Install it, or pass your own Supertext\\Sdk\\Http\\HttpTransport '
+                . '(e.g. wrapping your framework\'s HTTP client) as the Client\'s transport.'
+            );
+        }
+    }
+
+    /** Whether ext-curl is loaded, i.e. whether this transport can be used. */
+    public static function isAvailable(): bool
+    {
+        return \extension_loaded('curl');
+    }
+
     public function send(HttpRequest $request): HttpResponse
     {
         $handle = curl_init($request->url);

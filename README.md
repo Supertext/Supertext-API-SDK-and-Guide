@@ -14,7 +14,7 @@ You need a Supertext API key. No Supertext account yet? Create one at [supertext
 | Language | Package | Requirements | Docs |
 | --- | --- | --- | --- |
 | TypeScript / JavaScript | `npm install supertext-sdk` | Node 18+, Deno, Bun; no dependencies | [sdk/typescript](sdk/typescript/README.md) |
-| PHP | `composer require supertext/supertext-sdk` | PHP 8.1+, ext-curl; no dependencies | [sdk/php](sdk/php/README.md) |
+| PHP | `composer require supertext/supertext-sdk` | PHP 8.1+; no dependencies (ext-curl only for the built-in HTTP transport) | [sdk/php](sdk/php/README.md) |
 | Python | `pip install supertext-sdk` | Python 3.10+; standard library only | [sdk/python](sdk/python/README.md) |
 | .NET | `dotnet add package Supertext.Sdk` | .NET 8+ | [sdk/dotnet](sdk/dotnet/README.md) |
 | Java | `com.supertext:supertext-sdk` (Maven) | Java 11+; no dependencies | [sdk/java](sdk/java/README.md) |

@@ -73,6 +73,28 @@ jobs:
       - name: Conformance
         run: node stand-in/conformance.mjs -- php sdk/php/examples/conformance.php
 
+  php-without-curl:
+    # ext-curl is optional (only the built-in CurlTransport needs it): the SDK must
+    # install and work with an integration's own HttpTransport when curl is missing.
+    name: PHP without curl
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: "8.3"
+          extensions: :curl
+          coverage: none
+          tools: composer
+      - name: curl is not loaded
+        run: |
+          if php -m | grep -qi '^curl$'; then echo "curl is still loaded"; exit 1; fi
+      - run: composer install --no-interaction --no-progress
+      - name: PHPUnit
+        run: vendor/bin/phpunit -c sdk/php/phpunit.xml.dist
+
   python:
     name: Python ${{ matrix.python }}
     runs-on: ubuntu-latest

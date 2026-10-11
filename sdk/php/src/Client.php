@@ -44,7 +44,7 @@ final class Client
      * @param float                        $requestTimeout seconds per HTTP request
      * @param int                          $maxRetries     retries after HTTP 429
      * @param string|null                  $userAgent      appended to the User-Agent, e.g. "MyCms-Supertext/1.2.0"
-     * @param HttpTransport|null           $transport      defaults to CurlTransport
+     * @param HttpTransport|null           $transport      defaults to CurlTransport (needs ext-curl; pass your own transport to do without)
      * @param (callable(float): void)|null $sleep          sleeps the given seconds (for tests)
      * @param (callable(): float)|null     $clock          monotonic time in seconds (for tests)
      */

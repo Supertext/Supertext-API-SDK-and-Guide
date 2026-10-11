@@ -37,7 +37,7 @@ To change behaviour: change the vector (or add one), then every SDK and its test
 | .NET | `dotnet build sdk/dotnet -warnaserror && dotnet test sdk/dotnet`, `dotnet build sdk/dotnet/examples/Conformance -c Release`, then `node stand-in/conformance.mjs -- dotnet sdk/dotnet/examples/Conformance/bin/Release/net8.0/Conformance.dll` |
 | Java | `cd sdk/java && mvn -B verify`, then `node ../../stand-in/conformance.mjs -- java -cp target/classes examples/Conformance.java` |
 
-CI matrix: Node 18/20/22, PHP 8.1–8.4, Python 3.10–3.13, .NET 8, Java 11/17/21.
+CI matrix: Node 18/20/22, PHP 8.1–8.4 (plus PHP 8.3 without ext-curl, which only the built-in transport needs), Python 3.10–3.13, .NET 8, Java 11/17/21.
 
 Nothing in CI talks to the live API. Before a release, run each SDK's conformance program once against the live API with a test key (`SUPERTEXT_API_URL=https://api.supertext.com/v1/`, `SUPERTEXT_API_KEY=…`, a request with a few real sentences on stdin) and check the translations.
 

@@ -2,7 +2,7 @@
 
 Client for the Supertext AI translation API: translate HTML and texts, with language codes, rate-limit retries and HTML packing handled for you.
 
-PHP 8.1+, ext-curl and ext-json, no other dependencies. For the protocol and the lessons behind it, see the [integration guide](../../docs/integration-guide.md).
+PHP 8.1+, no other dependencies. The built-in HTTP transport uses ext-curl; if you plug in your own HTTP client (see [Your own HTTP client](#your-own-http-client)), curl isn't needed. For the protocol and the lessons behind it, see the [integration guide](../../docs/integration-guide.md).
 
 ## Install
 
@@ -101,10 +101,48 @@ All constructor arguments after the key are optional and best passed by name:
 | `requestTimeout` | `30.0` | Seconds per HTTP request |
 | `maxRetries` | `4` | Retries after HTTP 429 (waits `Retry-After`, else 1, 2, 4, 8 s plus jitter; at most 30 s) |
 | `userAgent` | `null` | Appended to `User-Agent: supertext-sdk-php`, e.g. `MyCms-Supertext/1.0.0` |
-| `transport` | `CurlTransport` | Any `Http\HttpTransport` (e.g. wrapping your framework's HTTP client) |
+| `transport` | `CurlTransport` (needs ext-curl) | Any `Http\HttpTransport`, e.g. wrapping your framework's HTTP client ([below](#your-own-http-client)) |
 | `sleep`, `clock` | real time | Injectable for tests |
 
 A blank key doesn't fail in the constructor, only on the first request (`missing_api_key`), so you can create the client before the integration is configured. Long translations block the PHP process while polling; run them in a queue or CLI job, or raise `max_execution_time`.
+
+## Your own HTTP client
+
+CMSs and frameworks usually bring an HTTP client with their proxy, TLS and logging settings (Contao, Symfony and Craft use Symfony HttpClient or Guzzle). Wrap it in an `HttpTransport` and pass it as `transport`; then ext-curl isn't needed. Without curl and without a transport, `new Client()` throws a `LogicException` saying so.
+
+Return every HTTP answer, including 4xx and 5xx, as an `HttpResponse`; throw only when there is no answer at all (the client turns that into `transport_error`). Example for Symfony HttpClient:
+
+```php
+use Supertext\Sdk\Http\HttpRequest;
+use Supertext\Sdk\Http\HttpResponse;
+use Supertext\Sdk\Http\HttpTransport;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+
+final class SymfonyHttpTransport implements HttpTransport
+{
+    public function __construct(private readonly HttpClientInterface $http)
+    {
+    }
+
+    public function send(HttpRequest $request): HttpResponse
+    {
+        $response = $this->http->request($request->method, $request->url, [
+            'headers' => $request->headers,
+            'body' => $request->body ?? '',
+            'max_duration' => $request->timeout,
+        ]);
+
+        // false: return 4xx/5xx answers instead of throwing.
+        $headers = array_map(static fn (array $values): string => implode(', ', $values), $response->getHeaders(false));
+
+        return new HttpResponse($response->getStatusCode(), $response->getContent(false), $headers);
+    }
+}
+
+$client = new Client($apiKey, transport: new SymfonyHttpTransport($httpClient));
+```
+
+For Guzzle, send with `'http_errors' => false` and `'timeout' => $request->timeout`, and build the `HttpResponse` from the status, `(string) $response->getBody()` and the headers the same way.
 
 ## Testing against the stand-in
 
