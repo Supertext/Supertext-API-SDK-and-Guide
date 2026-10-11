@@ -1,0 +1,6 @@
+# Local stand-in and examples (not reachable from CI)
+^https?://127\.0\.0\.1
+^https?://localhost
+^https?://(www\.)?example\.(com|org)
+# The API itself answers 401/404 without a key
+^https://api\.supertext\.com/

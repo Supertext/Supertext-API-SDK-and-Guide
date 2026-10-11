@@ -1,0 +1,10 @@
+# PHP (Composer runs from the repo root)
+/vendor/
+/composer.lock
+.phpunit.cache/
+# Release builds
+/dist/
+# Editors, OS
+.idea/
+.vscode/
+.DS_Store

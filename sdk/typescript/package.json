@@ -1,0 +1,51 @@
+{
+  "name": "supertext-sdk",
+  "version": "0.1.0",
+  "description": "Client for the Supertext AI translation API: translate HTML and texts, with language codes, rate-limit retries and HTML packing handled for you.",
+  "license": "MIT",
+  "author": "Supertext AG",
+  "homepage": "https://github.com/Supertext/Supertext-API-SDK-and-Guide",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Supertext/Supertext-API-SDK-and-Guide.git",
+    "directory": "sdk/typescript"
+  },
+  "bugs": "https://github.com/Supertext/Supertext-API-SDK-and-Guide/issues",
+  "keywords": [
+    "supertext",
+    "translation",
+    "machine-translation",
+    "ai",
+    "localization",
+    "i18n"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "conformance": "npm run build && cd ../.. && node stand-in/conformance.mjs -- node sdk/typescript/examples/conformance.mjs",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

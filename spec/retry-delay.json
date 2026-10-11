@@ -1,0 +1,120 @@
+{
+  "description": "Wait in milliseconds before retrying an HTTP 429 (attempt is 0-based; default 4 retries, configurable). A Retry-After header that is a plain number of seconds (regex ^[0-9]+(\\.[0-9]+)?$ after trimming ASCII whitespace) wins. Otherwise 1000 \u00d7 2^attempt ms plus 0\u2013249 ms jitter. Either way the result is capped at 30000 ms. Other Retry-After forms (HTTP dates, negative numbers, '.5', '1e3', garbage) fall back to the backoff.",
+  "maxRetries": 4,
+  "cases": [
+    {
+      "attempt": 0,
+      "retryAfter": null,
+      "min": 1000,
+      "max": 1249
+    },
+    {
+      "attempt": 1,
+      "retryAfter": null,
+      "min": 2000,
+      "max": 2249
+    },
+    {
+      "attempt": 2,
+      "retryAfter": null,
+      "min": 4000,
+      "max": 4249
+    },
+    {
+      "attempt": 3,
+      "retryAfter": null,
+      "min": 8000,
+      "max": 8249
+    },
+    {
+      "attempt": 0,
+      "retryAfter": "3",
+      "min": 3000,
+      "max": 3000
+    },
+    {
+      "attempt": 2,
+      "retryAfter": "0",
+      "min": 0,
+      "max": 0
+    },
+    {
+      "attempt": 0,
+      "retryAfter": "1.5",
+      "min": 1500,
+      "max": 1500
+    },
+    {
+      "attempt": 0,
+      "retryAfter": "120",
+      "min": 30000,
+      "max": 30000
+    },
+    {
+      "attempt": 1,
+      "retryAfter": "",
+      "min": 2000,
+      "max": 2249
+    },
+    {
+      "attempt": 1,
+      "retryAfter": "soon",
+      "min": 2000,
+      "max": 2249
+    },
+    {
+      "attempt": 0,
+      "retryAfter": "-1",
+      "min": 1000,
+      "max": 1249
+    },
+    {
+      "attempt": 0,
+      "retryAfter": "Wed, 21 Oct 2026 07:28:00 GMT",
+      "min": 1000,
+      "max": 1249
+    },
+    {
+      "attempt": 4,
+      "retryAfter": null,
+      "min": 16000,
+      "max": 16249
+    },
+    {
+      "attempt": 5,
+      "retryAfter": null,
+      "min": 30000,
+      "max": 30000
+    },
+    {
+      "attempt": 0,
+      "retryAfter": " 2 ",
+      "min": 2000,
+      "max": 2000
+    },
+    {
+      "attempt": 0,
+      "retryAfter": ".5",
+      "min": 1000,
+      "max": 1249
+    },
+    {
+      "attempt": 0,
+      "retryAfter": "1.",
+      "min": 1000,
+      "max": 1249
+    },
+    {
+      "attempt": 0,
+      "retryAfter": "+3",
+      "min": 1000,
+      "max": 1249
+    },
+    {
+      "attempt": 0,
+      "retryAfter": "1e3",
+      "min": 1000,
+      "max": 1249
+    }
+  ]
+}

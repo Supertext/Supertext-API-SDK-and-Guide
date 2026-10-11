@@ -1,0 +1,139 @@
+name: Release
+
+# Publishes a GitHub release when the version is officially bumped: a new
+# "## X.Y.Z" section at the top of CHANGELOG.md (below Unreleased), with every
+# file in VERSION_FILES carrying the same number (all SDKs share one version).
+# The built packages (npm, Python, NuGet, Maven jar) are attached to the release.
+# Pushes that add no new version do nothing, and a version that is already
+# released is skipped. 0.x versions are published as pre-releases.
+# Publishing to npm, PyPI, NuGet, Maven Central and Packagist is not automated
+# yet: see docs/DEVELOPER.md → Releasing.
+
+on:
+  push:
+    branches: [main]
+    paths: [CHANGELOG.md, .github/workflows/release.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  # Files that must carry the released version (PHP: the Git tag is the version).
+  VERSION_FILES: >-
+    sdk/typescript/package.json
+    sdk/python/pyproject.toml
+    sdk/dotnet/src/Supertext.Sdk/Supertext.Sdk.csproj
+    sdk/java/pom.xml
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.version.outputs.release }}
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read the version from CHANGELOG.md
+        id: version
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 -oE '^## \[?[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+          if [ -z "$version" ]; then
+            echo "No released version in CHANGELOG.md yet, nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "v$version is already released, nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          for f in $VERSION_FILES; do
+            if ! grep -qF "$version" "$f"; then
+              echo "::error file=$f::CHANGELOG.md says $version, but $f doesn't. Bump it there too."
+              exit 1
+            fi
+          done
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+  packages:
+    name: Build packages
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: "8.0.x"
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Build
+        run: |
+          set -euo pipefail
+          mkdir dist
+          (cd sdk/typescript && npm ci && npm run build && npm pack --pack-destination ../../dist)
+          python -m pip install build && python -m build sdk/python --outdir dist
+          dotnet pack sdk/dotnet/src/Supertext.Sdk -c Release -o dist
+          (cd sdk/java && mvn -B -ntp -DskipTests package && cp target/supertext-sdk-*.jar ../../dist/)
+          ls -l dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    name: Create the release
+    needs: [version, packages]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # creates the tag and the release
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: packages
+          path: dist
+      - name: Create the release
+        run: |
+          set -euo pipefail
+          awk -v v="$VERSION" '/^## /{ if (p) exit; if (index($0, v) && $0 ~ /^## \[?[0-9]/) { p=1; next } } p' CHANGELOG.md > section.md
+          {
+            if [ "${VERSION%%.*}" = "0" ]; then printf '**Pre-release.** '; fi
+            echo "SDKs and integration guide: [README](https://github.com/$GH_REPO/blob/v$VERSION/README.md)."
+            echo
+            echo "## What's in $VERSION"
+            cat section.md
+          } > notes.md
+          pre=()
+          if [ "${VERSION%%.*}" = "0" ]; then pre=(--prerelease); fi
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" \
+            --notes-file notes.md "${pre[@]}" dist/*
+          echo "Released https://github.com/$GH_REPO/releases/tag/v$VERSION"

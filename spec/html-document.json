@@ -1,0 +1,252 @@
+{
+  "description": "Packing segments into the HTML document sent to Supertext, and reading them back. See docs/integration-guide.md → The HTML document. build: exact output. parse: segment kinds in, one result per segment (null = missing).",
+  "build": [
+    {
+      "name": "plain text is escaped",
+      "segments": [
+        {
+          "text": "Fish & Chips <today> \"fresh\" & it's good",
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">Fish &amp; Chips &lt;today&gt; &quot;fresh&quot; &amp; it&#39;s good</div>\n</body></html>\n"
+    },
+    {
+      "name": "plain line breaks become <br>, CRLF and CR too",
+      "segments": [
+        {
+          "text": "Line 1\nLine 2\r\nLine 3\rLine 4",
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">Line 1<br>Line 2<br>Line 3<br>Line 4</div>\n</body></html>\n"
+    },
+    {
+      "name": "HTML segments go as they are",
+      "segments": [
+        {
+          "text": "A <b>bold</b> start with a <a href=\"https://www.supertext.com\">link</a>.",
+          "html": true
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">A <b>bold</b> start with a <a href=\"https://www.supertext.com\">link</a>.</div>\n</body></html>\n"
+    },
+    {
+      "name": "several segments, ids are the positions",
+      "segments": [
+        {
+          "text": "Title",
+          "html": false
+        },
+        {
+          "text": "<p>Body</p>",
+          "html": true
+        },
+        {
+          "text": "Käse, Crème brûlée, 日本語",
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">Title</div>\n<div data-st-id=\"1\"><p>Body</p></div>\n<div data-st-id=\"2\">Käse, Crème brûlée, 日本語</div>\n</body></html>\n"
+    },
+    {
+      "name": "no segments",
+      "segments": [],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n</body></html>\n"
+    }
+  ],
+  "parse": [
+    {
+      "name": "plain text: entities decoded, <br> back to line breaks",
+      "segments": [
+        {
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">Fisch &amp; Pommes &lt;heute&gt; &quot;frisch&quot; &#39;gut&#39; &apos;ja&apos;<br>Zeile 2<br/>Zeile 3<BR />Zeile 4</div>\n</body></html>\n",
+      "out": [
+        "Fisch & Pommes <heute> \"frisch\" 'gut' 'ja'\nZeile 2\nZeile 3\nZeile 4"
+      ]
+    },
+    {
+      "name": "plain text: whitespace collapses, around line breaks too",
+      "segments": [
+        {
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">\n   Hallo\t  Welt  <br>\n  zweite   Zeile  \n</div>\n</body></html>\n",
+      "out": [
+        "Hallo Welt\nzweite Zeile"
+      ]
+    },
+    {
+      "name": "plain text: other tags removed, &nbsp; kept as U+00A0",
+      "segments": [
+        {
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\"><span class=\"x\">CHF&nbsp;10</span> <b>billiger</b></div>\n</body></html>\n",
+      "out": [
+        "CHF 10 billiger"
+      ]
+    },
+    {
+      "name": "plain text: numeric entities, unknown named entities stay",
+      "segments": [
+        {
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">&#228; &#xE9; &#X1F600; &eacute; &copy;</div>\n</body></html>\n",
+      "out": [
+        "ä é 😀 &eacute; &copy;"
+      ]
+    },
+    {
+      "name": "plain text: numeric entities that are not Unicode scalar values stay as written",
+      "segments": [
+        {
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">&#0; &#xD800; &#xDFFF; &#x110000; &#55296; ok</div>\n</body></html>\n",
+      "out": [
+        "&#0; &#xD800; &#xDFFF; &#x110000; &#55296; ok"
+      ]
+    },
+    {
+      "name": "plain text: decoded markup stays text",
+      "segments": [
+        {
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">Use &lt;b&gt; for bold</div>\n</body></html>\n",
+      "out": [
+        "Use <b> for bold"
+      ]
+    },
+    {
+      "name": "HTML: inner markup kept, outer ASCII whitespace trimmed",
+      "segments": [
+        {
+          "html": true
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">\n  Ein <b>fetter</b> Anfang mit einem <a href=\"https://www.supertext.com\">Link</a>.  \n</div>\n</body></html>\n",
+      "out": [
+        "Ein <b>fetter</b> Anfang mit einem <a href=\"https://www.supertext.com\">Link</a>."
+      ]
+    },
+    {
+      "name": "HTML: nested divs inside a segment",
+      "segments": [
+        {
+          "html": true
+        },
+        {
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\"><div class=\"a\"><div>innen</div></div> danach</div>\n<div data-st-id=\"1\">zwei</div>\n</body></html>\n",
+      "out": [
+        "<div class=\"a\"><div>innen</div></div> danach",
+        "zwei"
+      ]
+    },
+    {
+      "name": "HTML: self-closing div inside a segment",
+      "segments": [
+        {
+          "html": true
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">vor <div/> nach</div>\n</body></html>\n",
+      "out": [
+        "vor <div/> nach"
+      ]
+    },
+    {
+      "name": "segments in another order, other attributes and quotes",
+      "segments": [
+        {
+          "html": false
+        },
+        {
+          "html": false
+        },
+        {
+          "html": false
+        }
+      ],
+      "html": "<html><body><p class=\"x\" data-st-id='2'>drei</p>\n<div id=\"a\" data-st-id=\"0\" lang=\"de\">eins</div><section data-st-id=1>zwei</section></body></html>",
+      "out": [
+        "eins",
+        "zwei",
+        "drei"
+      ]
+    },
+    {
+      "name": "missing segment is null; unknown and duplicate ids are ignored",
+      "segments": [
+        {
+          "html": false
+        },
+        {
+          "html": false
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">eins</div>\n</body></html>\n<div data-st-id=\"7\">sieben</div><div data-st-id=\"0\">doppelt</div>",
+      "out": [
+        "eins",
+        null
+      ]
+    },
+    {
+      "name": "element without closing tag is ignored",
+      "segments": [
+        {
+          "html": false
+        },
+        {
+          "html": false
+        }
+      ],
+      "html": "<div data-st-id=\"0\">eins</div><div data-st-id=\"1\">zwei",
+      "out": [
+        "eins",
+        null
+      ]
+    },
+    {
+      "name": "tag names match case-insensitively; similar tag names do not count",
+      "segments": [
+        {
+          "html": true
+        }
+      ],
+      "html": "<DIV data-st-id=\"0\"><divx>a</divx><Div>b</DIV></div>",
+      "out": [
+        "<divx>a</divx><Div>b</DIV>"
+      ]
+    },
+    {
+      "name": "empty segment",
+      "segments": [
+        {
+          "html": false
+        },
+        {
+          "html": true
+        }
+      ],
+      "html": "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\"></div>\n<div data-st-id=\"1\">   </div>\n</body></html>\n",
+      "out": [
+        "",
+        ""
+      ]
+    }
+  ]
+}

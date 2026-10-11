@@ -1,0 +1,81 @@
+{
+  "description": "End-to-end scenarios every SDK passes against the stand-in (stand-in/conformance.mjs). Each SDK ships a small conformance program: it reads one request as JSON on stdin, translates it with translateTexts using SUPERTEXT_API_URL and SUPERTEXT_API_KEY from the environment (poll interval 100 ms), and prints {\"translations\": {key: text}} or {\"error\": {\"code\": …, \"status\": …}} as JSON on stdout. Exit code 0 in both cases.",
+  "scenarios": [
+    {
+      "name": "translate texts, retry a 429, normalize language codes, strip a pasted key prefix, delete the file",
+      "apiKey": "Supertext-Auth-Key conformance-key",
+      "rateLimit": true,
+      "request": {
+        "sourceLang": "en-US",
+        "targetLang": "de",
+        "politeness": "more",
+        "segments": [
+          { "key": "title", "text": "Hello & welcome", "html": false },
+          { "key": "body", "text": "<p>Our <b>new</b> shop opens on <a href=\"https://www.supertext.com\">Monday</a>.</p>", "html": true },
+          { "key": "lines", "text": "Line 1\nLine 2", "html": false },
+          { "key": "blank", "text": "  ", "html": false },
+          { "key": "quote", "text": "It's \"fresh\" <today>", "html": false }
+        ]
+      },
+      "expected": {
+        "translations": {
+          "title": "[de-DE] Hello & welcome",
+          "body": "<p>[de-DE] Our <b>new</b> shop opens on <a href=\"https://www.supertext.com\">Monday</a>.</p>",
+          "lines": "[de-DE] Line 1\nLine 2",
+          "blank": "  ",
+          "quote": "[de-DE] It's \"fresh\" <today>"
+        }
+      },
+      "expectedUpload": { "target_lang": "de-DE", "source_lang": "en", "politeness": "more", "content_type": "text/html" },
+      "expectedStats": { "submitted": 1, "deleted": 1, "rateLimited": 1 }
+    },
+    {
+      "name": "no source language: source_lang is left out (auto-detect), default politeness is not sent",
+      "apiKey": "conformance-key",
+      "rateLimit": false,
+      "request": {
+        "targetLang": "fr_ch",
+        "segments": [{ "key": "a", "text": "Good morning", "html": false }]
+      },
+      "expected": { "translations": { "a": "[fr-CH] Good morning" } },
+      "expectedUpload": { "target_lang": "fr-CH", "source_lang": null, "politeness": null, "content_type": "text/html" },
+      "expectedStats": { "submitted": 1, "deleted": 1, "rateLimited": 0 }
+    },
+    {
+      "name": "rejected key",
+      "apiKey": "invalid",
+      "rateLimit": false,
+      "request": {
+        "sourceLang": "en",
+        "targetLang": "de-CH",
+        "segments": [{ "key": "a", "text": "Hello", "html": false }]
+      },
+      "expected": { "error": { "code": "authentication_failure", "status": 401 } },
+      "expectedStats": { "submitted": 0, "deleted": 0 }
+    },
+    {
+      "name": "translation fails: error status, file still deleted",
+      "apiKey": "conformance-key",
+      "rateLimit": false,
+      "request": {
+        "sourceLang": "en",
+        "targetLang": "it-CH",
+        "segments": [{ "key": "a", "text": "STAND-IN:error", "html": false }]
+      },
+      "expected": { "error": { "code": "translation_error", "status": null } },
+      "expectedStats": { "submitted": 1, "deleted": 1 }
+    },
+    {
+      "name": "nothing to translate: no request at all",
+      "apiKey": "conformance-key",
+      "rateLimit": false,
+      "request": {
+        "sourceLang": "en",
+        "targetLang": "de-DE",
+        "segments": [{ "key": "a", "text": "", "html": false }, { "key": "b", "text": " \n ", "html": true }]
+      },
+      "expected": { "translations": { "a": "", "b": " \n " } },
+      "expectedStats": { "submitted": 0, "deleted": 0 }
+    }
+  ]
+}

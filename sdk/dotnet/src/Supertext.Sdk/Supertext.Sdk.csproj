@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Supertext.Sdk</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <PackageId>Supertext.Sdk</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Supertext AG</Authors>
+    <Company>Supertext AG</Company>
+    <Description>Client for the Supertext AI translation API: translate HTML and texts, with language codes, rate-limit retries and HTML packing handled for you.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Supertext/Supertext-API-SDK-and-Guide</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Supertext/Supertext-API-SDK-and-Guide</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>supertext;translation;machine-translation;ai;localization;i18n</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <InternalsVisibleTo Include="Supertext.Sdk.Tests" />
+  </ItemGroup>
+
+</Project>

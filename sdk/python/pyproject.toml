@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "supertext-sdk"
+version = "0.1.0"
+description = "Client for the Supertext AI translation API: translate HTML and texts, with language codes, rate-limit retries and HTML packing handled for you."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Supertext AG" }]
+requires-python = ">=3.10"
+dependencies = []
+keywords = ["supertext", "translation", "machine translation", "localization", "i18n"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Internationalization",
+  "Topic :: Software Development :: Localization",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/Supertext/Supertext-API-SDK-and-Guide"
+Documentation = "https://github.com/Supertext/Supertext-API-SDK-and-Guide/tree/main/sdk/python"
+Issues = "https://github.com/Supertext/Supertext-API-SDK-and-Guide/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+supertext = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests", "examples"]
+mypy_path = "src"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.format]
+# Keep the README's aligned comments.
+exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]

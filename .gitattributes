@@ -1,0 +1,19 @@
+# Composer installs the PHP SDK from this repository (Packagist reads the root
+# composer.json). Keep the other SDKs, tests and tooling out of its archives.
+# Don't export-ignore spec/: the PHP tests read it, but they aren't shipped either.
+/.github export-ignore
+/docs export-ignore
+/spec export-ignore
+/stand-in export-ignore
+/sdk/typescript export-ignore
+/sdk/python export-ignore
+/sdk/dotnet export-ignore
+/sdk/java export-ignore
+/sdk/php/tests export-ignore
+/sdk/php/examples export-ignore
+/sdk/php/phpunit.xml.dist export-ignore
+/sdk/php/phpstan.neon export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.lycheeignore export-ignore
+/CLAUDE.md export-ignore

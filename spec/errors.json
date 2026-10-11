@@ -1,0 +1,237 @@
+{
+  "description": "How API answers map to SupertextError codes. `detail` is the response body with tags (`<…>`) removed, trimmed (ASCII whitespace) and cut to 200 characters; null when that leaves nothing. Every vector lists the expected detail. `apiErrorCode` is the body's JSON `error_code` (null if the body isn't a JSON object with a string error_code). invalid_language_pair: HTTP 400 whose body contains the text INVALID_LANGUAGE_PAIR (JSON or not); sourceLang/targetLang come from the JSON body's source_lang/target_lang when they are strings (else null). Every HTTP 5xx is service_unavailable. HTTP 429 is first retried (see retry-delay.json); this table applies once the retries are used up.",
+  "http": [
+    {
+      "status": 400,
+      "body": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\",\"source_lang\":\"en\",\"target_lang\":\"de\"}",
+      "code": "invalid_language_pair",
+      "detail": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\",\"source_lang\":\"en\",\"target_lang\":\"de\"}",
+      "apiErrorCode": "INVALID_LANGUAGE_PAIR",
+      "sourceLang": "en",
+      "targetLang": "de"
+    },
+    {
+      "status": 400,
+      "body": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\"}",
+      "code": "invalid_language_pair",
+      "detail": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\"}",
+      "apiErrorCode": "INVALID_LANGUAGE_PAIR",
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 400,
+      "body": "INVALID_LANGUAGE_PAIR",
+      "code": "invalid_language_pair",
+      "detail": "INVALID_LANGUAGE_PAIR",
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 400,
+      "body": "{\"error_code\":\"INVALID_MULTIPART\"}",
+      "code": "unexpected_status",
+      "detail": "{\"error_code\":\"INVALID_MULTIPART\"}",
+      "apiErrorCode": "INVALID_MULTIPART",
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 401,
+      "body": "",
+      "code": "authentication_failure",
+      "detail": null,
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 403,
+      "body": "<h1>Forbidden</h1>",
+      "code": "authentication_failure",
+      "detail": "Forbidden",
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 404,
+      "body": "{}",
+      "code": "not_found",
+      "detail": "{}",
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 413,
+      "body": "",
+      "code": "payload_too_large",
+      "detail": null,
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 415,
+      "body": "",
+      "code": "unexpected_status",
+      "detail": null,
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 429,
+      "body": "{\"error_code\":\"RATE_LIMIT_EXCEEDED\"}",
+      "code": "too_many_requests",
+      "detail": "{\"error_code\":\"RATE_LIMIT_EXCEEDED\"}",
+      "apiErrorCode": "RATE_LIMIT_EXCEEDED",
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 500,
+      "body": "",
+      "code": "service_unavailable",
+      "detail": null,
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 502,
+      "body": "",
+      "code": "service_unavailable",
+      "detail": null,
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 503,
+      "body": "",
+      "code": "service_unavailable",
+      "detail": null,
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 504,
+      "body": "",
+      "code": "service_unavailable",
+      "detail": null,
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 418,
+      "body": "",
+      "code": "unexpected_status",
+      "detail": null,
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 505,
+      "body": "",
+      "code": "service_unavailable",
+      "detail": null,
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 599,
+      "body": "",
+      "code": "service_unavailable",
+      "detail": null,
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 400,
+      "body": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\",\"source_lang\":null,\"target_lang\":7}",
+      "code": "invalid_language_pair",
+      "detail": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\",\"source_lang\":null,\"target_lang\":7}",
+      "apiErrorCode": "INVALID_LANGUAGE_PAIR",
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 400,
+      "body": "[\"INVALID_LANGUAGE_PAIR\"]",
+      "code": "invalid_language_pair",
+      "detail": "[\"INVALID_LANGUAGE_PAIR\"]",
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 401,
+      "body": "{\"error_code\":42}",
+      "code": "authentication_failure",
+      "detail": "{\"error_code\":42}",
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    },
+    {
+      "status": 500,
+      "body": "  <p>\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</p>",
+      "code": "service_unavailable",
+      "detail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "apiErrorCode": null,
+      "sourceLang": null,
+      "targetLang": null
+    }
+  ],
+  "fileStatus": [
+    {
+      "status": "translating",
+      "code": null
+    },
+    {
+      "status": "queued",
+      "code": null
+    },
+    {
+      "status": "done",
+      "code": null
+    },
+    {
+      "status": "error",
+      "code": "translation_error"
+    },
+    {
+      "status": "limit_exceeded",
+      "code": "quota_exceeded"
+    },
+    {
+      "status": "deleted",
+      "code": "file_deleted"
+    }
+  ],
+  "codes": {
+    "missing_api_key": "No API key configured. No request was sent.",
+    "authentication_failure": "HTTP 401/403: the key is wrong, revoked or lacks access.",
+    "invalid_language_pair": "HTTP 400 INVALID_LANGUAGE_PAIR: usually a bare target (\"de\") or a regional source (\"en-US\").",
+    "not_found": "HTTP 404: unknown file id (expired after 24 h or already deleted).",
+    "payload_too_large": "HTTP 413: the document is over the API's size limit.",
+    "too_many_requests": "HTTP 429 after all retries.",
+    "service_unavailable": "HTTP 5xx.",
+    "unexpected_status": "Any other HTTP status.",
+    "transport_error": "No HTTP answer: DNS, TLS, connection refused, request timeout.",
+    "no_file_id": "The upload answered without a file_id.",
+    "translation_error": "File status `error`.",
+    "quota_exceeded": "File status `limit_exceeded`: the account's translation limit is used up.",
+    "file_deleted": "File status `deleted` before the download.",
+    "timeout": "The file wasn't done within the client's timeout.",
+    "incomplete_response": "The download was empty, or (translateTexts) segments are missing from the translated document."
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "description": "How translateTexts splits segments into documents. Segments keep their input order. A segment whose text is empty or only ASCII whitespace (space, tab, CR, LF, FF) is not sent and comes back unchanged. The others are added to the current document while the sum of their packed content lengths (what goes between <div data-st-id> and </div>, counted in Unicode code points) stays at or below maxCharacters (default 900000, below the API's limit of 1,000,000 characters per document); then a new document starts. A segment that is longer than maxCharacters on its own goes alone into a document. Documents are translated one after the other (never in parallel: the API limits requests per second).",
+  "defaultMaxCharacters": 900000,
+  "cases": [
+    {
+      "name": "everything fits into one document",
+      "maxCharacters": 100,
+      "segments": [{ "key": "a", "text": "Hello", "html": false }, { "key": "b", "text": "<p>World</p>", "html": true }],
+      "batches": [["a", "b"]]
+    },
+    {
+      "name": "split when the next segment would exceed the limit; exactly the limit still fits",
+      "maxCharacters": 10,
+      "segments": [
+        { "key": "a", "text": "12345", "html": false },
+        { "key": "b", "text": "12345", "html": false },
+        { "key": "c", "text": "1", "html": false }
+      ],
+      "batches": [["a", "b"], ["c"]]
+    },
+    {
+      "name": "the packed length counts: & becomes &amp;, a line break becomes <br>",
+      "maxCharacters": 10,
+      "segments": [
+        { "key": "a", "text": "a&b", "html": false },
+        { "key": "b", "text": "x\ny", "html": false }
+      ],
+      "batches": [["a"], ["b"]]
+    },
+    {
+      "name": "an oversized segment goes alone",
+      "maxCharacters": 4,
+      "segments": [
+        { "key": "a", "text": "ab", "html": false },
+        { "key": "b", "text": "abcdefgh", "html": false },
+        { "key": "c", "text": "cd", "html": false }
+      ],
+      "batches": [["a"], ["b"], ["c"]]
+    },
+    {
+      "name": "blank segments are skipped",
+      "maxCharacters": 100,
+      "segments": [
+        { "key": "a", "text": "", "html": false },
+        { "key": "b", "text": " \t\r\n", "html": true },
+        { "key": "c", "text": "Text", "html": false }
+      ],
+      "batches": [["c"]]
+    },
+    {
+      "name": "nothing to send",
+      "maxCharacters": 100,
+      "segments": [{ "key": "a", "text": "  ", "html": false }],
+      "batches": []
+    }
+  ]
+}
