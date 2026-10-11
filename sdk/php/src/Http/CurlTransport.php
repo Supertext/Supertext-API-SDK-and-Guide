@@ -24,12 +24,12 @@ final class CurlTransport implements HttpTransport
 
         $responseHeaders = [];
         $options = [
-            CURLOPT_CUSTOMREQUEST => $request->method,
+            CURLOPT_CUSTOMREQUEST => $request->method === '' ? 'GET' : $request->method,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_TIMEOUT_MS => max(1, (int) round($request->timeout * 1000)),
-            CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$responseHeaders): int {
+            CURLOPT_HEADERFUNCTION => static function (\CurlHandle $curl, string $line) use (&$responseHeaders): int {
                 $parts = explode(':', $line, 2);
                 if (\count($parts) === 2) {
                     $responseHeaders[trim($parts[0])] = trim($parts[1]);
