@@ -7,6 +7,7 @@ For people working on this repository. To build an integration, read the [integr
 ```
 docs/                  integration guide, API reference, this file
 spec/                  shared test vectors (JSON) every SDK must pass
+spec/commando/         copies of the Commando Center's spec (report schema and vectors)
 stand-in/stand-in.mjs  stand-in for the Supertext API (Node, no dependencies)
 stand-in/conformance.mjs  runs an SDK's conformance program against the stand-in
 sdk/typescript/        npm supertext-sdk
@@ -63,7 +64,7 @@ Dependabot (`.github/dependabot.yml`) checks npm (`sdk/typescript`), Composer (r
 All SDKs share one version. `.github/workflows/release.yml` publishes a GitHub release when the version is officially bumped; never tag or create a release by hand.
 
 1. In `CHANGELOG.md`, move the *Unreleased* entries into a new section `## X.Y.Z — YYYY-MM-DD` below an empty *Unreleased*.
-2. Set the same version in `sdk/typescript/package.json` (and `package-lock.json`), `sdk/python/pyproject.toml`, `sdk/dotnet/src/Supertext.Sdk/Supertext.Sdk.csproj` and `sdk/java/pom.xml`. PHP takes its version from the Git tag.
+2. Set the same version in `sdk/typescript/package.json` (and `package-lock.json`), `sdk/python/pyproject.toml`, `sdk/dotnet/src/Supertext.Sdk/Supertext.Sdk.csproj`, `sdk/java/pom.xml` and the `SDK_VERSION` constants the version reports send (`sdk/typescript/src/version.ts`, `sdk/php/src/Supertext.php`, `sdk/python/src/supertext/version.py`, `sdk/dotnet/src/Supertext.Sdk/SupertextClient.Version.cs`, `sdk/java/src/main/java/com/supertext/sdk/SupertextClient.java`). Composer takes the PHP package version from the Git tag; the constant is for the reports.
 3. Push to `main`. The workflow checks the version files, builds the npm tarball, the Python wheel and sdist, the NuGet package and the jar, tags `vX.Y.Z` and creates the release with the changelog section and the packages attached (0.x as pre-release).
 
 Not automated yet (needs accounts and secrets, Remy):
@@ -73,6 +74,10 @@ Not automated yet (needs accounts and secrets, Remy):
 - **NuGet**: API key for `Supertext.Sdk` (reserve the `Supertext` prefix).
 - **Maven Central**: namespace `com.supertext` (verify the domain), signing key.
 - **Packagist**: submit the repository URL once; Packagist then picks up tags.
+
+## Commando Center protocol
+
+The version reports, the API key check and the ping endpoint follow the [Commando Center](https://github.com/Supertext/Commando-Center-Supertext-Translation)'s *Report protocol*. When the center's `spec/` changes, copy it to `spec/commando/` (and its commit to `spec/commando/COMMIT`); when the protocol changes, update `spec/reporting.json`, all five SDKs and the guide's section 14 in the same commit. The center accepts unknown fields, so new optional report fields don't break older plugins.
 
 ## Adding a language
 

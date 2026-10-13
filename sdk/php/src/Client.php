@@ -33,6 +33,9 @@ final class Client
     /** @var callable(): float */
     private $clock;
 
+    /** @var callable(): float */
+    private $now;
+
     /**
      * A blank key doesn't fail here: the first request throws `missing_api_key` without sending anything,
      * so a client can be created before the integration is configured.
@@ -47,6 +50,7 @@ final class Client
      * @param HttpTransport|null           $transport      defaults to CurlTransport (needs ext-curl; pass your own transport to do without)
      * @param (callable(float): void)|null $sleep          sleeps the given seconds (for tests)
      * @param (callable(): float)|null     $clock          monotonic time in seconds (for tests)
+     * @param (callable(): float)|null     $now            wall-clock Unix time in seconds, for checkApiKey()'s checkedAt (for tests)
      */
     public function __construct(
         #[\SensitiveParameter] private readonly string $apiKey,
@@ -59,6 +63,7 @@ final class Client
         ?HttpTransport $transport = null,
         ?callable $sleep = null,
         ?callable $clock = null,
+        ?callable $now = null,
     ) {
         $baseUrl = trim($baseUrl);
         $this->baseUrl = rtrim($baseUrl !== '' ? $baseUrl : Supertext::LIVE_BASE_URL, '/') . '/';
@@ -71,6 +76,7 @@ final class Client
             }
         };
         $this->clock = $clock ?? static fn (): float => hrtime(true) / 1e9;
+        $this->now = $now ?? static fn (): float => microtime(true);
     }
 
     /** Keeps the key out of var_dump() and print_r(). */
@@ -87,6 +93,27 @@ final class Client
     public function validateApiKey(): void
     {
         $this->request('GET', 'features');
+    }
+
+    /**
+     * The automatic API key check: `GET features` with a 10 s timeout (or the request timeout, if
+     * shorter) and the usual 429 retries, mapped to ApiKeyCheck::OK, INVALID, MISSING, UNREACHABLE or
+     * ERROR. Never throws. A blank key gives MISSING without a request.
+     */
+    public function checkApiKey(): ApiKeyCheck
+    {
+        $checkedAt = ApiKeyCheck::timestamp(($this->now)());
+        $fingerprint = Supertext::apiKeyFingerprint($this->apiKey);
+        if ($fingerprint === '') {
+            return new ApiKeyCheck(ApiKeyCheck::MISSING, $checkedAt, null, null, '');
+        }
+        try {
+            $response = $this->request('GET', 'features', timeout: min((float) ApiKeyCheck::TIMEOUT, $this->requestTimeout));
+
+            return new ApiKeyCheck(ApiKeyCheck::OK, $checkedAt, $response->status, null, $fingerprint);
+        } catch (\Throwable $e) {
+            return ApiKeyCheck::fromError($e, $checkedAt, $fingerprint);
+        }
     }
 
     /**
@@ -308,7 +335,7 @@ final class Client
      *
      * @throws SupertextException
      */
-    private function request(string $method, string $path, ?string $body = null, ?string $contentType = null): HttpResponse
+    private function request(string $method, string $path, ?string $body = null, ?string $contentType = null, ?float $timeout = null): HttpResponse
     {
         // Throws missing_api_key before anything is sent.
         $authorization = Supertext::authHeader($this->apiKey);
@@ -320,7 +347,7 @@ final class Client
         if ($contentType !== null) {
             $headers['Content-Type'] = $contentType;
         }
-        $request = new HttpRequest($method, $this->baseUrl . $path, $headers, $body, $this->requestTimeout);
+        $request = new HttpRequest($method, $this->baseUrl . $path, $headers, $body, $timeout ?? $this->requestTimeout);
 
         for ($attempt = 0; ; $attempt++) {
             try {

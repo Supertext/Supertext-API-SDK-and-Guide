@@ -111,6 +111,44 @@ except supertext.SupertextError as error:
         ...
 ```
 
+## API key check, version reports and the ping endpoint
+
+**Key check.** `client.check_api_key()` sends `GET features` (at most 10 s) and never raises. It returns a frozen `ApiKeyCheck` with `status` (`ok`, `invalid` for 401/403, `missing` for a blank key without a request, `unreachable` for no answer or 5xx, `error` for anything else), `checked_at` (`2026-10-13T08:00:00Z`), `http_status`, `error_code` (the API's, at most 100 characters) and `fingerprint` (SHA-256 of the key, to notice a changed key; the key itself is never stored or sent). Show the result on the settings page; for `invalid` or `missing`, show the links: No Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (supertext.com → Integrations → API; requires the Admin role).
+
+**Version reports.** `InstallationReporter` tells the Supertext Commando Center which plugin, system, runtime and SDK versions run where, and the key status (never the key). It is stateless: load the stored state, call the method for what just happened, store `result.state`.
+
+```python
+from supertext import InstallationReporter, NameVersion, reporter_state, reports_enabled
+
+reporter = InstallationReporter(
+    enabled=reports_enabled(settings.get("version_reports")),  # SUPERTEXT_VERSION_REPORTS wins; default on
+    site_url="https://cms.example.ch",
+    plugin=NameVersion("MyCms-Supertext-Translation", "1.2.0"),  # GitHub repo name, official version
+    system=NameVersion("MyCms", "5.1.0"),
+    callback_url="https://cms.example.ch/supertext/ping",      # None for hosted apps without one
+)
+state = reporter_state(settings.get("supertext_reporter"))     # JSON text, dict or None; broken → empty
+
+result = reporter.after_settings_saved(state, api_key)          # on every settings save
+# reporter.on_request(state, api_key)                           # back-end requests: changed key, upgrades
+# reporter.authentication_failed(state, api_key, 403)           # a translation got 401/403
+# reporter.test_connection(state, api_key)                      # the "Test connection" button
+# reporter.report_check(state)                                  # send a "check" report now (commands)
+settings["supertext_reporter"] = result.state.to_json()         # camelCase JSON, same in every SDK
+show(result.check)                                              # the latest ApiKeyCheck
+```
+
+`result.event` is the event reported (or tried), `result.sent` whether the center accepted it (2xx). Reports go through the client's `Transport` (POST JSON, 3 s timeout) and never raise; after a failure, no new report is tried for an hour (`report_check` excepted). The report URL is `report_url=`, else `SUPERTEXT_REPORT_URL`, else `DEFAULT_REPORT_URL`. `transport`, `client_options` (for the key check's `Client`, e.g. `base_url`) and `now` are injectable for tests.
+
+**Ping endpoint.** The center checks that a reported site is real by calling the plugin's public `callback_url` with `?challenge=<c>`. Answer with `ping_response`:
+
+```python
+from supertext import ping_response
+
+response = ping_response(request.args.get("challenge"), "MyCms-Supertext-Translation", reporter.enabled)
+return response.body, response.status, dict(response.headers)  # 200/400/404, JSON, Cache-Control: no-store
+```
+
 ## Options
 
 ```python
@@ -125,6 +163,7 @@ supertext.Client(
     transport=None,                    # callable(HttpRequest) -> HttpResponse; default: urllib
     sleep=time.sleep,                  # injectable for tests
     clock=time.monotonic,              # injectable for tests
+    now=time.time,                     # wall clock for check_api_key(); injectable for tests
 )
 ```
 

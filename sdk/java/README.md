@@ -48,7 +48,7 @@ Plain-text segments are escaped and keep their line breaks; HTML segments are se
 
 The calls block and throw `InterruptedException` when the thread is interrupted; the uploaded file is still deleted. Documents are translated one after the other (the API limits requests per second).
 
-Lower-level calls: `validateApiKey()` (free check of the key), `submit`, `getStatus`, `waitUntilDone`, `download`, `delete` (never throws).
+Lower-level calls: `validateApiKey()` (free check of the key; throws), `checkApiKey()` (never throws, see below), `submit`, `getStatus`, `waitUntilDone`, `download`, `delete` (never throws).
 
 ## Language codes
 
@@ -91,6 +91,48 @@ Every failure is a `SupertextException` (unchecked) with `getCode()` (`ErrorCode
 | `timeout` | The translation took too long. Try again, or raise the timeout. |
 | `incomplete_response` | The translation came back incomplete. Try again. |
 
+## API key check, version reports and ping
+
+Behaviour shared by all Supertext SDKs: `spec/reporting.json`.
+
+**Key check.** `client.checkApiKey()` calls `GET features` (at most 10 s, the usual 429 retries) and never throws. It returns an immutable `ApiKeyCheck`: `getStatus()` (`OK` 2xx, `INVALID` 401/403, `MISSING` blank key, nothing sent, `UNREACHABLE` no answer or 5xx, `ERROR` anything else), `getCheckedAt()` (`2026-10-13T08:00:00Z`), `getHttpStatus()`, `getErrorCode()` and `getFingerprint()` (SHA-256 of the key, to notice a changed key; `ApiKeyCheck.fingerprint(key)`). Show the result on the settings page. If it is `INVALID` or `MISSING`, add the links: no Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (supertext.com → Integrations → API; requires the Admin role).
+
+**Version reports.** `InstallationReporter` sends the plugin, system, runtime and SDK versions and the key check's result (never the key) to the Supertext Commando Center. It is stateless: load the stored `ReporterState`, pass it in, store the state you get back. No call throws; a failed report waits an hour.
+
+```java
+InstallationReporter reporter = InstallationReporter.builder()
+        .enabled(Reporting.reportsEnabled(settings.versionReports())) // Boolean setting (null = on); SUPERTEXT_VERSION_REPORTS wins
+        .siteUrl("https://cms.example.ch")
+        .plugin("Magnolia-Supertext-Translation", "0.2.0")            // repo name, official version
+        .system("Magnolia", "6.4.10")
+        .callbackUrl("https://cms.example.ch/.supertext/ping")        // omit for hosted apps without one
+        .build();                                                     // runtime: Java + java.version; reportUrl: SUPERTEXT_REPORT_URL or the live center
+
+ReporterState state = ReporterState.fromJson(stored);              // null or broken → empty
+ReporterResult r = reporter.afterSettingsSaved(state, apiKey);      // on every settings save
+store(r.getState().toJson());
+r.getCheck();                                                       // the latest ApiKeyCheck
+```
+
+| Call | When |
+| --- | --- |
+| `afterSettingsSaved(state, key)` | Settings saved: checks the key, reports `installed` or `settings_saved` |
+| `onRequest(state, key)` | Back-end requests: re-checks a changed key, reports `installed`, `upgraded` or `api_key_check` when due |
+| `authenticationFailed(state, key, httpStatus)` | A translation got 401/403: marks the key invalid (no request to Supertext) |
+| `testConnection(state, key)` | "Test connection": checks the key, reports a change |
+| `reportCheck(state)` | Commands and tests: sends `check` now |
+
+`buildReport(event, state)` / `buildReportJson(...)` give the body; `versions()` the `<plugin>|<system>|<runtime>` string. Options for tests: `transport` (shared with the key check), `apiBaseUrl`, `sleeper`, `clock`. Constants in `Reporting` (`DEFAULT_REPORT_URL`, `REPORT_TIMEOUT`, `KEY_CHECK_TIMEOUT`, `FAILURE_BACKOFF`); `SupertextClient.SDK_VERSION` is this SDK's version.
+
+**Ping.** The callback URL answers the center's `GET <callback>?challenge=<c>` without login:
+
+```java
+PingResponse ping = PingResponse.of(request.getParameter("challenge"), "Magnolia-Supertext-Translation", enabled);
+response.setStatus(ping.getStatus());                 // 200, 400 (bad challenge) or 404 (reports off)
+ping.getHeaders().forEach(response::setHeader);       // Content-Type: application/json, Cache-Control: no-store
+response.getWriter().write(ping.getBody());
+```
+
 ## Options
 
 ```java
@@ -104,6 +146,7 @@ SupertextClient.builder(apiKey)
         .transport(new JdkHttpTransport(myHttpClient)) // or your own Transport (tests, other HTTP stacks)
         .sleeper(d -> Thread.sleep(d.toMillis()))  // replace in tests
         .clock(System::nanoTime)                   // replace in tests
+        .wallClock(Clock.systemUTC())              // checkedAt of checkApiKey(); replace in tests
         .build();
 ```
 

@@ -29,6 +29,11 @@ env:
     sdk/python/pyproject.toml
     sdk/dotnet/src/Supertext.Sdk/Supertext.Sdk.csproj
     sdk/java/pom.xml
+    sdk/typescript/src/version.ts
+    sdk/php/src/Supertext.php
+    sdk/python/src/supertext/version.py
+    sdk/dotnet/src/Supertext.Sdk/SupertextClient.Version.cs
+    sdk/java/src/main/java/com/supertext/sdk/SupertextClient.java
 
 jobs:
   version:

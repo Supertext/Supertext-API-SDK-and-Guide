@@ -31,7 +31,7 @@ public sealed partial class SupertextClient
 
     // One shared client for everyone who doesn't bring their own (avoids socket exhaustion).
     // Infinite timeout: RequestTimeout is applied per request instead.
-    private static readonly Lazy<HttpClient> SharedHttpClient = new(() => new HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan });
+    internal static readonly Lazy<HttpClient> SharedHttpClient = new(() => new HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan });
 
     private readonly string apiKey;
     private readonly Uri baseUri;
@@ -104,6 +104,38 @@ public sealed partial class SupertextClient
     public async Task ValidateApiKeyAsync(CancellationToken cancellationToken = default)
     {
         await SendAsync(HttpMethod.Get, "features", null, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The automatic API key check for settings and status screens (spec/reporting.json → apiKeyCheck):
+    /// <c>GET features</c> with a timeout of at most <see cref="Reporting.KeyCheckTimeout"/> and the usual 429 retries.
+    /// Never throws (except when <paramref name="cancellationToken"/> is cancelled): 2xx is
+    /// <see cref="ApiKeyCheckStatus.Ok"/>, 401/403 <see cref="ApiKeyCheckStatus.Invalid"/>, 5xx or no answer
+    /// <see cref="ApiKeyCheckStatus.Unreachable"/>, anything else <see cref="ApiKeyCheckStatus.Error"/>.
+    /// A blank key gives <see cref="ApiKeyCheckStatus.Missing"/> without a request.
+    /// </summary>
+    public async Task<ApiKeyCheck> CheckApiKeyAsync(CancellationToken cancellationToken = default)
+    {
+        var checkedAt = ApiKeyCheck.IsoSeconds(clock.GetUtcNow());
+        var fingerprint = ApiKeyCheck.FingerprintOf(apiKey);
+        if (fingerprint.Length == 0)
+        {
+            return new ApiKeyCheck(ApiKeyCheckStatus.Missing, checkedAt, null, null, fingerprint);
+        }
+        try
+        {
+            var timeout = options.RequestTimeout < Reporting.KeyCheckTimeout ? options.RequestTimeout : Reporting.KeyCheckTimeout;
+            var response = await SendAsync(HttpMethod.Get, "features", null, cancellationToken, timeout).ConfigureAwait(false);
+            return new ApiKeyCheck(ApiKeyCheckStatus.Ok, checkedAt, response.Status, null, fingerprint);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            return ApiKeyCheck.FromException(e, checkedAt, fingerprint);
+        }
     }
 
     /// <summary>Uploads an HTML document for translation and returns its file id.</summary>
@@ -334,8 +366,10 @@ public sealed partial class SupertextClient
     private sealed record Response(int Status, string Body);
 
     /// <summary>Sends one request (retrying 429s), reads the whole answer, and maps errors.</summary>
-    private async Task<Response> SendAsync(HttpMethod method, string path, Func<HttpContent>? content, CancellationToken cancellationToken)
+    private async Task<Response> SendAsync(HttpMethod method, string path, Func<HttpContent>? content, CancellationToken cancellationToken,
+        TimeSpan? requestTimeout = null)
     {
+        var timeoutAfter = requestTimeout ?? options.RequestTimeout;
         // Throws missing_api_key before anything is sent.
         var authorization = AuthHeader(apiKey);
         var uri = new Uri(baseUri, path);
@@ -352,7 +386,7 @@ public sealed partial class SupertextClient
             string? retryAfter = null;
             using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
-                timeout.CancelAfter(options.RequestTimeout);
+                timeout.CancelAfter(timeoutAfter);
                 try
                 {
                     using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
@@ -371,7 +405,7 @@ public sealed partial class SupertextClient
                 catch (OperationCanceledException e)
                 {
                     throw new SupertextException(SupertextErrorCodes.TransportError, "Could not reach Supertext.",
-                        detail: $"Request timed out after {options.RequestTimeout.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s", innerException: e);
+                        detail: $"Request timed out after {timeoutAfter.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s", innerException: e);
                 }
                 catch (Exception e) when (e is HttpRequestException or IOException or InvalidOperationException)
                 {

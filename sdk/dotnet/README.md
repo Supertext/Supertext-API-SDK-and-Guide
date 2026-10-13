@@ -37,7 +37,7 @@ Send each paragraph (heading, list item) as **one** segment, with formatting and
 
 `TranslateTextsAsync` takes any `IEnumerable<KeyValuePair<string, Segment>>`. Blank texts come back unchanged and cost no request. Large inputs are split into several documents of at most `maxCharacters` (default 900,000), sent one after the other.
 
-The lower-level steps are public too: `SubmitAsync`, `GetStatusAsync`, `WaitUntilDoneAsync`, `DownloadAsync`, `DeleteAsync` (never throws), and `ValidateApiKeyAsync` (a cost-free key check for your settings screen). Every method takes a `CancellationToken`.
+The lower-level steps are public too: `SubmitAsync`, `GetStatusAsync`, `WaitUntilDoneAsync`, `DownloadAsync`, `DeleteAsync` (never throws), `ValidateApiKeyAsync` (a cost-free key check that throws) and `CheckApiKeyAsync` (the same check as a result, see below). Every method takes a `CancellationToken`.
 
 ## Language codes
 
@@ -80,6 +80,31 @@ Everything the API or the client can't handle is a `SupertextException` with `Co
 | `timeout` | Not done within `Timeout` | The translation is taking too long; try again or translate less at once |
 | `incomplete_response` | Empty download or missing texts (`Detail`: `missing: key1, key2`) | The translation came back incomplete; try again |
 
+## API key check, version reports and ping
+
+**Key check.** `CheckApiKeyAsync()` calls `GET features` (no cost, at most 10 s, the usual 429 retries) and never throws. It returns an `ApiKeyCheck` (`Status`: `ok`, `invalid` (401/403), `missing` (blank key, nothing sent), `unreachable` (no answer or 5xx), `error`; plus `CheckedAt`, `HttpStatus`, `ErrorCode` and `Fingerprint`, a SHA-256 of the key to notice a changed one; the key itself is never kept). Show it on your settings page. If it says `invalid` or `missing`: no Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (supertext.com → Integrations → API; requires the Admin role).
+
+**Version reports.** `InstallationReporter` tells the Supertext Commando Center which plugin, system, runtime and SDK versions an installation runs and whether its key works. It is stateless: store `ReporterState.ToJson()` somewhere and load it with `ReporterState.FromJson(json)` (broken values become an empty state). It never throws and never sends the key; a failed report isn't retried for an hour.
+
+```csharp
+var reporter = new InstallationReporter(new ReporterOptions
+{
+    Enabled = Reporting.ReportsEnabled(settings.SendVersionInfo),   // SUPERTEXT_VERSION_REPORTS=0/1 wins
+    SiteUrl = "https://www.example.ch",
+    Plugin = new NameVersion("Umbraco-Supertext-Translation", "1.2.0"),
+    System = new NameVersion("Umbraco", "16.2.0"),
+    CallbackUrl = "https://www.example.ch/umbraco/supertext/ping",   // null for hosted apps
+    ClientOptions = clientOptions,                                    // for the key check
+});
+
+var result = await reporter.AfterSettingsSavedAsync(ReporterState.FromJson(stored), apiKey);
+Save(result.State.ToJson());      // result.Check: show it to administrators
+```
+
+Call `AfterSettingsSavedAsync` after a settings save, `OnRequestAsync` on back-end requests (checks the key only if it changed, reports only what changed), `AuthenticationFailedAsync(state, key, 403)` when a translation was rejected, `TestConnectionAsync` for a "Test connection" button and `ReportCheckAsync` for a command that reports now. `BuildReport(ReportEvents.Check, state)` shows what would be sent. Reports go to `SUPERTEXT_REPORT_URL` if set, else `Reporting.DefaultReportUrl`, with a 3 s timeout. `Runtime` defaults to `.NET` and `Environment.Version`, `SdkVersion` to `SupertextClient.SdkVersion`.
+
+**Ping.** The center confirms a reported callback URL with `GET <callback>?challenge=<c>`. Answer it with `PingResponse.For(challenge, "Umbraco-Supertext-Translation", enabled)` and copy its `Status`, `Headers` (`Content-Type: application/json`, `Cache-Control: no-store`) and `Body` to the response: 200 with the challenge echoed, 400 for a bad challenge, 404 while reporting is off.
+
 ## Options
 
 `SupertextClientOptions` (all optional):
@@ -94,7 +119,7 @@ Everything the API or the client can't handle is a `SupertextException` with `Co
 | `UserAgent` | none | Appended to `supertext-sdk-dotnet`, e.g. `My-CMS-Plugin/1.0.0` |
 | `HttpClient` | shared internal client | E.g. from `IHttpClientFactory`; its `Timeout` should be ≥ `RequestTimeout` |
 | `Sleep` | `Task.Delay` | Replace in tests |
-| `TimeProvider` | `TimeProvider.System` | Clock for the polling timeout; replace in tests |
+| `TimeProvider` | `TimeProvider.System` | Clock for the polling timeout and the key check's `CheckedAt`; replace in tests |
 
 Also public: `SupertextClient.AuthHeader(key)`, `SupertextClient.RetryDelayMs(attempt, retryAfter)`, `HtmlDocument.Build` / `Parse` if you build documents yourself.
 

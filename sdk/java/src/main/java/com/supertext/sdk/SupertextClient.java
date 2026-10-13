@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -35,6 +36,9 @@ public final class SupertextClient {
     /** The live API. */
     public static final String LIVE_BASE_URL = "https://api.supertext.com/v1/";
 
+    /** This SDK's version (sent in version reports; the same number as {@code pom.xml}). */
+    public static final String SDK_VERSION = "0.1.0";
+
     /** Characters per document in {@link #translateTexts}, below the API's limit of 1,000,000. */
     public static final int DEFAULT_MAX_CHARACTERS = 900_000;
 
@@ -61,6 +65,7 @@ public final class SupertextClient {
     private final Transport transport;
     private final Sleeper sleeper;
     private final LongSupplier nanoTime;
+    private final Clock wallClock;
 
     /** A client for the live API with the default options. */
     public SupertextClient(String apiKey) {
@@ -80,6 +85,7 @@ public final class SupertextClient {
         this.transport = b.transport != null ? b.transport : new JdkHttpTransport();
         this.sleeper = b.sleeper != null ? b.sleeper : d -> Thread.sleep(d.toMillis());
         this.nanoTime = b.nanoTime != null ? b.nanoTime : System::nanoTime;
+        this.wallClock = b.wallClock != null ? b.wallClock : Clock.systemUTC();
     }
 
     /**
@@ -138,6 +144,31 @@ public final class SupertextClient {
     /** Checks that the key works ({@code GET features}, free of charge). */
     public void validateApiKey() throws InterruptedException {
         request("GET", "features", null, null);
+    }
+
+    /**
+     * The automatic API key check (spec/reporting.json → apiKeyCheck): {@code GET features} with a
+     * timeout of at most {@link Reporting#KEY_CHECK_TIMEOUT} and the usual 429 retries. Never throws:
+     * 2xx is {@code ok}, 401/403 {@code invalid}, 5xx or no answer {@code unreachable}, anything else
+     * {@code error}. A blank key gives {@code missing} without a request. If the thread is interrupted,
+     * the check is {@code unreachable} and the interrupt flag stays set.
+     */
+    public ApiKeyCheck checkApiKey() {
+        String checkedAt = ApiKeyCheck.isoSeconds(wallClock.instant());
+        String fingerprint = ApiKeyCheck.fingerprint(apiKey);
+        if (fingerprint.isEmpty()) {
+            return new ApiKeyCheck(ApiKeyCheck.Status.MISSING, checkedAt, null, null, fingerprint);
+        }
+        Duration checkTimeout = requestTimeout.compareTo(Reporting.KEY_CHECK_TIMEOUT) < 0 ? requestTimeout : Reporting.KEY_CHECK_TIMEOUT;
+        try {
+            Transport.Response response = request("GET", "features", null, null, checkTimeout);
+            return new ApiKeyCheck(ApiKeyCheck.Status.OK, checkedAt, response.getStatus(), null, fingerprint);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return new ApiKeyCheck(ApiKeyCheck.Status.UNREACHABLE, checkedAt, null, null, fingerprint);
+        } catch (RuntimeException e) {
+            return ApiKeyCheck.fromError(e, checkedAt, fingerprint);
+        }
     }
 
     /** {@link #submit(String, String, String, Politeness)} with auto-detected source and default politeness. */
@@ -360,6 +391,11 @@ public final class SupertextClient {
     // ---------------------------------------------------------------- HTTP
 
     private Transport.Response request(String method, String path, byte[] body, String contentType) throws InterruptedException {
+        return request(method, path, body, contentType, requestTimeout);
+    }
+
+    private Transport.Response request(String method, String path, byte[] body, String contentType, Duration timeout)
+            throws InterruptedException {
         String authorization = authHeader(apiKey); // throws missing_api_key before anything is sent
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Authorization", authorization);
@@ -368,7 +404,7 @@ public final class SupertextClient {
         if (contentType != null) {
             headers.put("Content-Type", contentType);
         }
-        Transport.Request request = new Transport.Request(method, URI.create(baseUrl + path), headers, body, requestTimeout);
+        Transport.Request request = new Transport.Request(method, URI.create(baseUrl + path), headers, body, timeout);
 
         for (int attempt = 0; ; attempt++) {
             Transport.Response response;
@@ -495,6 +531,7 @@ public final class SupertextClient {
         private Transport transport;
         private Sleeper sleeper;
         private LongSupplier nanoTime;
+        private Clock wallClock;
 
         private Builder(String apiKey) {
             this.apiKey = apiKey;
@@ -554,6 +591,12 @@ public final class SupertextClient {
         /** Monotonic clock in nanoseconds for the polling timeout (default {@link System#nanoTime}). */
         public Builder clock(LongSupplier nanoTime) {
             this.nanoTime = nanoTime;
+            return this;
+        }
+
+        /** Wall clock for {@link ApiKeyCheck#getCheckedAt()} (default {@link Clock#systemUTC()}). */
+        public Builder wallClock(Clock wallClock) {
+            this.wallClock = wallClock;
             return this;
         }
 

@@ -16,6 +16,7 @@ from typing import Final, Literal
 from urllib.parse import quote
 
 from . import html_document, language_codes
+from .api_key_check import KEY_CHECK_TIMEOUT, ApiKeyCheck, api_key_check_from_error, api_key_fingerprint, iso_seconds
 from .errors import ErrorCode, SupertextError, error_for_response
 from .html_document import Segment
 from .transport import HttpRequest, HttpResponse, Transport, UrllibTransport
@@ -64,7 +65,8 @@ class Client:
 
     A blank API key doesn't fail here: the first request raises ``SupertextError(missing_api_key)``
     without sending anything, so integrations can build the client before the key is configured.
-    Times are in seconds. ``transport``, ``sleep`` and ``clock`` are injectable for tests.
+    Times are in seconds. ``transport``, ``sleep``, ``clock`` (monotonic, for timeouts) and ``now``
+    (Unix time, for :attr:`ApiKeyCheck.checked_at`) are injectable for tests.
     """
 
     def __init__(
@@ -80,6 +82,7 @@ class Client:
         transport: Transport | None = None,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
+        now: Callable[[], float] = time.time,
     ) -> None:
         self._api_key = api_key or ""
         self.base_url = (base_url or LIVE_BASE_URL).rstrip("/") + "/"
@@ -91,6 +94,7 @@ class Client:
         self._transport: Transport = transport or UrllibTransport()
         self._sleep = sleep
         self._clock = clock
+        self._now = now
 
     def __repr__(self) -> str:
         # Never show the key.
@@ -101,6 +105,23 @@ class Client:
     def validate_api_key(self) -> None:
         """Cost-free check that the key is accepted; raises :class:`SupertextError` otherwise."""
         self._request("GET", "features")
+
+    def check_api_key(self) -> ApiKeyCheck:
+        """The automatic API key check: ``GET features`` with at most 10 s timeout, as an :class:`ApiKeyCheck`.
+
+        Status ``ok`` (2xx), ``invalid`` (401/403), ``unreachable`` (no answer, 5xx) or ``error``
+        (anything else, e.g. 429 after the retries). Never raises. A blank key gives ``missing``
+        without a request.
+        """
+        checked_at = iso_seconds(self._now())
+        fingerprint = api_key_fingerprint(self._api_key)
+        if not fingerprint:
+            return ApiKeyCheck("missing", checked_at, None, None, fingerprint)
+        try:
+            response = self._request("GET", "features", timeout=min(KEY_CHECK_TIMEOUT, self.request_timeout))
+        except Exception as error:
+            return api_key_check_from_error(error, checked_at, fingerprint)
+        return ApiKeyCheck("ok", checked_at, response.status, None, fingerprint)
 
     def submit(
         self, html: str, target_lang: str, source_lang: str | None = None, politeness: Politeness = "default"
@@ -202,7 +223,13 @@ class Client:
     # -- HTTP --------------------------------------------------------------------------------
 
     def _request(
-        self, method: str, path: str, *, body: bytes | None = None, content_type: str | None = None
+        self,
+        method: str,
+        path: str,
+        *,
+        body: bytes | None = None,
+        content_type: str | None = None,
+        timeout: float | None = None,
     ) -> HttpResponse:
         authorization = auth_header(self._api_key)
         headers = {
@@ -212,7 +239,8 @@ class Client:
         }
         if content_type:
             headers["Content-Type"] = content_type
-        request = HttpRequest(method, self.base_url + path, headers, body, self.request_timeout)
+        request_timeout = self.request_timeout if timeout is None else timeout
+        request = HttpRequest(method, self.base_url + path, headers, body, request_timeout)
         attempt = 0
         while True:
             try:

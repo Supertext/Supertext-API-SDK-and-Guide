@@ -26,6 +26,7 @@ All five offer the same things, named the way each language expects:
 - `translateTexts(segments, target, source?, politeness?)`: many keyed texts (plain or HTML) in one go, split into documents under the size limit, translated one after the other, read back by key.
 - `translateHtml(html, target, source?, politeness?)`: one HTML document, the full round trip.
 - The single steps (`submit`, `getStatus`, `waitUntilDone`, `download`, `delete`) and `validateApiKey` (a cost-free key check for settings pages).
+- The Commando Center building blocks every Supertext plugin uses: `checkApiKey` (the automatic key check with its result), `InstallationReporter` (version reports) and `pingResponse` (the public ping endpoint). See the [guide](docs/integration-guide.md#14-version-reports-the-api-key-check-and-the-ping-endpoint).
 - `LanguageCodes`: source as bare language (`en`), target with a region (`de-DE`), default regions, per-language overrides, validation. The client applies it to every request.
 - `HtmlDocument`: the segment packing, if you drive the steps yourself.
 - One error type with stable codes (`authentication_failure`, `invalid_language_pair`, `quota_exceeded`, …) to show users a message in their language.

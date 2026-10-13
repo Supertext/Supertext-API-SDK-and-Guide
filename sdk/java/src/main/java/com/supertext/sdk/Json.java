@@ -6,9 +6,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Minimal JSON reader, so the SDK has no runtime dependencies. The API answers with a few flat
+ * Minimal JSON reader and writer, so the SDK has no runtime dependencies. The API answers with a few flat
  * fields ({@code file_id}, {@code status}, {@code error_code}); this reads any valid JSON into
- * {@link Map} (insertion-ordered), {@link List}, {@link String}, {@link Double}, {@link Boolean} or {@code null}.
+ * {@link Map} (insertion-ordered), {@link List}, {@link String}, {@link Double}, {@link Boolean} or {@code null},
+ * and writes those types (plus other {@link Number}s) back as compact JSON.
  */
 final class Json {
 
@@ -46,6 +47,83 @@ final class Json {
             // Not JSON: no field.
         }
         return null;
+    }
+
+    /** Compact JSON for maps (string keys), lists, strings, numbers, booleans and {@code null}. */
+    static String write(Object value) {
+        StringBuilder out = new StringBuilder();
+        write(out, value);
+        return out.toString();
+    }
+
+    private static void write(StringBuilder out, Object value) {
+        if (value == null) {
+            out.append("null");
+        } else if (value instanceof String) {
+            quote(out, (String) value);
+        } else if (value instanceof Boolean) {
+            out.append(value.toString());
+        } else if (value instanceof Double || value instanceof Float) {
+            double d = ((Number) value).doubleValue();
+            if (Double.isNaN(d) || Double.isInfinite(d)) {
+                out.append("null");
+            } else if (d == Math.rint(d) && Math.abs(d) < 1e15) {
+                out.append((long) d);
+            } else {
+                out.append(d);
+            }
+        } else if (value instanceof Number) {
+            out.append(value.toString());
+        } else if (value instanceof Map) {
+            out.append('{');
+            boolean first = true;
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                if (!first) {
+                    out.append(',');
+                }
+                first = false;
+                quote(out, String.valueOf(entry.getKey()));
+                out.append(':');
+                write(out, entry.getValue());
+            }
+            out.append('}');
+        } else if (value instanceof List) {
+            out.append('[');
+            boolean first = true;
+            for (Object item : (List<?>) value) {
+                if (!first) {
+                    out.append(',');
+                }
+                first = false;
+                write(out, item);
+            }
+            out.append(']');
+        } else {
+            throw new IllegalArgumentException("Cannot write " + value.getClass().getName() + " as JSON");
+        }
+    }
+
+    private static void quote(StringBuilder out, String text) {
+        out.append('"');
+        for (int k = 0; k < text.length(); k++) {
+            char c = text.charAt(k);
+            switch (c) {
+                case '"': out.append("\\\""); break;
+                case '\\': out.append("\\\\"); break;
+                case '\n': out.append("\\n"); break;
+                case '\r': out.append("\\r"); break;
+                case '\t': out.append("\\t"); break;
+                case '\b': out.append("\\b"); break;
+                case '\f': out.append("\\f"); break;
+                default:
+                    if (c < 0x20 || c == 0x2028 || c == 0x2029) {
+                        out.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        out.append(c);
+                    }
+            }
+        }
+        out.append('"');
     }
 
     private Object value() {

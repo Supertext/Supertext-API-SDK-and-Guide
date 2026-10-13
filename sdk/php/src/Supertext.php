@@ -9,6 +9,9 @@ namespace Supertext\Sdk;
  */
 final class Supertext
 {
+    /** This SDK's version (sent in version reports). The same number in every Supertext SDK. */
+    public const SDK_VERSION = '0.1.0';
+
     public const LIVE_BASE_URL = 'https://api.supertext.com/v1/';
 
     /** Characters per document, safely below the API's limit of 1,000,000. */
@@ -40,6 +43,19 @@ final class Supertext
         }
 
         return 'Supertext-Auth-Key ' . $key;
+    }
+
+    /**
+     * SHA-256 (lower-case hex) of the key as authHeader() would send it; '' for a blank key.
+     *
+     * Plugins store it next to the key check to notice a changed key (e.g. one from the environment).
+     * It is kept locally and never sent.
+     */
+    public static function apiKeyFingerprint(#[\SensitiveParameter] ?string $apiKey): string
+    {
+        $key = trim((string) preg_replace('/^\s*Supertext-Auth-Key(?:\s+|$)/i', '', $apiKey ?? ''));
+
+        return $key === '' ? '' : hash('sha256', $key);
     }
 
     /**

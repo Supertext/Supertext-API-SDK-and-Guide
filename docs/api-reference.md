@@ -18,7 +18,7 @@ No Supertext account yet? Create one at https://www.supertext.com/person/en/acco
 
 ### `GET features`
 
-Cost-free; checks the key. `200` with a JSON body if the key works, `401`/`403` if not.
+Cost-free; checks the key. `200` with a JSON body if the key works, `401`/`403` if not. The SDKs' `checkApiKey()` maps the answer to `ok`, `invalid`, `missing`, `unreachable` or `error` ([`spec/reporting.json`](../spec/reporting.json) → `apiKeyCheck`).
 
 ### `POST translate/ai/file`
 
@@ -60,3 +60,7 @@ Deletes the uploaded file and its translation. Files expire after 24 hours anywa
 | 5xx | | Service problem; try again later |
 
 How the SDKs map these to error codes: [`spec/errors.json`](../spec/errors.json).
+
+## Commando Center (version reports)
+
+Not part of the Supertext API: plugins report their versions to `POST https://commandocenter-production.up.railway.app/api/v1/report` (JSON, schema in [`spec/commando/report-v1.schema.json`](../spec/commando/report-v1.schema.json); `202` = stored). The protocol, including the plugin's ping endpoint, is in [Commando-Center-Supertext-Translation](https://github.com/Supertext/Commando-Center-Supertext-Translation) → `docs/DEVELOPER.md` → *Report protocol*.

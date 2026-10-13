@@ -25,6 +25,8 @@ Wherever the docs or a README mention the API key, show both links: "No Supertex
 - **Rich text:** each `data-st-id` element is translated on its own: one per paragraph with inline tags, never one per formatted run.
 - **Language codes:** source = bare language (`en`), target = regional code (`de-DE`, `en-US`); Supertext rejects bare targets (`INVALID_LANGUAGE_PAIR`, HTTP 400). A language it doesn't know at all (`xx-YY`) gets HTTP 404 with the same `error_code`. Bare locales get a regional default (`spec/language-codes.json`).
 
+**Commando Center:** version reports, the automatic API key check and the ping endpoint follow the center's *Report protocol* (Commando-Center-Supertext-Translation → `docs/DEVELOPER.md`); `spec/commando/` is a copy of its `spec/`, `spec/reporting.json` pins down the SDKs' reporter. Change it there and here together.
+
 When a plugin learns something new about the API, add it here, to the guide, and (if the SDKs should handle it) to the spec and all SDKs.
 
 ## Before committing
@@ -33,7 +35,7 @@ Run the commands for every SDK you touched (`docs/DEVELOPER.md` → *Tests and C
 
 ## Releases (always)
 
-`.github/workflows/release.yml` releases when `CHANGELOG.md` gets a new `## X.Y.Z — YYYY-MM-DD` section and the version files (`sdk/typescript/package.json`, `sdk/python/pyproject.toml`, `sdk/dotnet/src/Supertext.Sdk/Supertext.Sdk.csproj`, `sdk/java/pom.xml`) carry the same number. Never tag or create a release by hand. Publishing to npm, PyPI, NuGet, Maven Central and Packagist isn't automated yet (`docs/DEVELOPER.md` → *Releasing*).
+`.github/workflows/release.yml` releases when `CHANGELOG.md` gets a new `## X.Y.Z — YYYY-MM-DD` section and the version files (`sdk/typescript/package.json`, `sdk/python/pyproject.toml`, `sdk/dotnet/src/Supertext.Sdk/Supertext.Sdk.csproj`, `sdk/java/pom.xml` and the five `SDK_VERSION` constants, see `docs/DEVELOPER.md` → *Releasing*) carry the same number. Never tag or create a release by hand. Publishing to npm, PyPI, NuGet, Maven Central and Packagist isn't automated yet (`docs/DEVELOPER.md` → *Releasing*).
 
 ## Repo setup (always)
 

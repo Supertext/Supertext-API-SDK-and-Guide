@@ -50,6 +50,33 @@ const html = await client.translateHtml('<!DOCTYPE html><html>…</html>', 'fr',
 
 Lower-level steps, if you need them: `submit()`, `getStatus()`, `waitUntilDone()`, `download()`, `delete()` (never throws). `validateApiKey()` checks the key without cost (for a "test connection" button).
 
+## API key check, version reports and ping
+
+Supertext's plugins check the API key automatically and report their versions to the Supertext Commando Center ([guide, section 14](../../docs/integration-guide.md#14-version-reports-the-api-key-check-and-the-ping-endpoint)). No Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (supertext.com → Integrations → API; requires the Admin role).
+
+```ts
+import { InstallationReporter, pingResponse, reporterState, reportsEnabled } from 'supertext-sdk'
+
+const reporter = new InstallationReporter({
+  enabled: reportsEnabled(settings.versionReports),        // setting (default on) + SUPERTEXT_VERSION_REPORTS
+  siteUrl: 'https://cms.example.ch',
+  plugin: { name: 'Directus-Supertext-Translation', version: pkg.version }, // repo name, official version
+  system: { name: 'Directus', version: directusVersion },
+  callbackUrl: 'https://cms.example.ch/supertext/ping',    // null for hosted apps
+})
+
+const state = reporterState(await store.get('supertext_reporter')) // the plain JSON you stored, or nothing
+const result = await reporter.afterSettingsSaved(state, apiKey) // or onRequest / authenticationFailed / testConnection
+await store.set('supertext_reporter', JSON.stringify(result.state))
+result.check // { status: 'ok' | 'invalid' | 'missing' | 'unreachable' | 'error', checkedAt, httpStatus, errorCode, fingerprint }
+
+// The public ping route (GET, no login):
+const ping = pingResponse(request.query.challenge, { plugin: 'Directus-Supertext-Translation', enabled: reporter.enabled })
+response.status(ping.status).set(ping.headers).send(ping.body)
+```
+
+`client.checkApiKey()` runs the key check on its own (`GET features`, 10 s; never throws). Reports never throw either, time out after 3 s, and after a failure nothing is sent for an hour. They contain the site URL, the plugin, system, runtime and SDK versions, whether a key is set, the check result and the ping URL; never content, the key or personal data. `SUPERTEXT_REPORT_URL` sends them elsewhere (tests).
+
 ## Language codes
 
 Supertext wants the **source as a bare language** (`en`) and the **target with a region** (`de-DE`, `en-US`); anything else is HTTP 400 `INVALID_LANGUAGE_PAIR`. The client fixes this for you: `de` is sent as `de-DE`, `en-US` as source as `en`, `fr_ch` as `fr-CH`.

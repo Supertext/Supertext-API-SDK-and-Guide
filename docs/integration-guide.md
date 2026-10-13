@@ -19,7 +19,8 @@ Contents:
 11. [Writing translations back](#11-writing-translations-back)
 12. [Security](#12-security)
 13. [Testing](#13-testing)
-14. [Checklist](#14-checklist)
+14. [Version reports, the API key check and the ping endpoint](#14-version-reports-the-api-key-check-and-the-ping-endpoint)
+15. [Checklist](#15-checklist)
 
 The HTTP details are summarised in the [API reference](api-reference.md).
 
@@ -288,7 +289,27 @@ With `STAND_IN_SAMPLES` the stand-in returns real translations for known texts, 
 
 **Against the live API.** Try a few real items in each target language before a release, including rich text with formatting and links, a long page, and a language with a region override. Use a test account and test content only.
 
-## 14. Checklist
+## 14. Version reports, the API key check and the ping endpoint
+
+Supertext's plugins report to the **Commando Center** ([Commando-Center-Supertext-Translation](https://github.com/Supertext/Commando-Center-Supertext-Translation)), so Supertext support sees which plugin, system and runtime version each site runs, whether its API key works, and whether the site is reachable from the internet. The protocol is the center's `docs/DEVELOPER.md` → *Report protocol*; its `spec/` files are copied to [`spec/commando/`](../spec/commando/), and [`spec/reporting.json`](../spec/reporting.json) pins down what the SDKs do. Every SDK has the same three building blocks:
+
+**The API key check** (`checkApiKey()` on the client): the cost-free `GET features` with a 10 s timeout, mapped to `ok` (2xx), `invalid` (401/403), `missing` (no key; nothing sent), `unreachable` (no answer, timeout, 5xx) or `error` (anything else, with the HTTP status and Supertext's `error_code`). It never throws. The result carries a SHA-256 fingerprint of the key, so a plugin notices a changed key from the environment without storing the key twice; the fingerprint stays local and is never sent. Show the result with the messages from the center's guide (four languages; `invalid` and `missing` carry the account and API key links). The check runs whether or not reporting is on.
+
+**The installation reporter** (`InstallationReporter`). Construct it per request with the setting, the site's base URL, the plugin's repository name and version (from its official version source), the system's name and version and the ping URL. It doesn't store anything itself: load the state the plugin keeps (a small JSON object), pass it in, and store the state you get back.
+
+| Call it | Method | It does |
+| --- | --- | --- |
+| After the settings were saved | `afterSettingsSaved(state, apiKey)` | Checks the key; reports `installed` (first time) or `settings_saved`. Show the returned `check` on the settings page. |
+| On back-end requests that run the plugin's code (settings or status page, translate action, jobs, commands; never front-end page views) | `onRequest(state, apiKey)` | Checks the key if it changed since the last check; reports `installed`, `upgraded` (plugin, system or runtime version changed) or `api_key_check` (key status changed). Usually nothing. |
+| A translation got HTTP 401/403 | `authenticationFailed(state, apiKey, status)` | Marks the key `invalid`, reports the change once. |
+| *Test connection* | `testConnection(state, apiKey)` | Checks the key, reports a change. |
+| A check command | `reportCheck(state)` | Sends a `check` report now. |
+
+Reports are fire-and-forget: 3 s timeout, no exception ever reaches your code, and after a failed report nothing is sent for an hour. With the setting off nothing is sent at all. A report contains the site URL, plugin, system, runtime and SDK versions, whether a key is set, the key check result and the ping URL; never content, the key or personal data. `reportsEnabled(setting)` combines the setting (on by default) with `SUPERTEXT_VERSION_REPORTS` (`0` turns it off where settings live in the environment); `SUPERTEXT_REPORT_URL` points reports elsewhere for tests.
+
+**The ping endpoint** (`pingResponse(challenge, plugin, enabled)`): a public `GET` route (no login, no session, no CSRF, not cached) whose URL goes into the reports as `callback.url`. The center calls it with `?challenge=<c>`; the SDK gives the status, headers and body to send: 200 `{"ok":true,"plugin":"<repo>","challenge":"<c>"}` for a valid challenge, 400 for anything else, 404 while reporting is off. Hosted apps without a server on the customer's site send no callback URL.
+
+## 15. Checklist
 
 - [ ] `Authorization: Supertext-Auth-Key <key>`, pasted prefix stripped, blank key = no request
 - [ ] Source bare (`en`), target regional (`de-DE`), default regions for bare locales, per-language override with validation
@@ -301,4 +322,6 @@ With `STAND_IN_SAMPLES` the stand-in returns real translations for known texts, 
 - [ ] Existing translations not overwritten without asking; new translations unpublished for review
 - [ ] Error messages by code, in the user's language, with the account and API key links for key errors
 - [ ] Key stored safely, never logged, server-side only; permissions checked
+- [ ] Key checked on every settings save (and when an environment key changes, on 401/403, on *Test connection*), result shown with both links
+- [ ] *Send version information to Supertext* setting (on by default), reports from server code only, ping endpoint public and answering only the challenge
 - [ ] Tests with a fake HTTP layer and against the stand-in; a manual round against the live API

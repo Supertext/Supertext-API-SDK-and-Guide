@@ -16,3 +16,17 @@ export { HtmlDocument } from './html-document.js'
 export type { Segment } from './html-document.js'
 export { DEFAULT_MAX_CHARACTERS, planBatches } from './batching.js'
 export type { KeyedSegment } from './batching.js'
+export { SDK_VERSION } from './version.js'
+export { apiKeyFingerprint, apiKeyCheckFromError, KEY_CHECK_TIMEOUT_MS } from './api-key-check.js'
+export type { ApiKeyCheck, ApiKeyCheckStatus } from './api-key-check.js'
+export {
+  DEFAULT_REPORT_URL,
+  EMPTY_REPORTER_STATE,
+  FAILURE_BACKOFF_MS,
+  InstallationReporter,
+  REPORT_TIMEOUT_MS,
+  pingResponse,
+  reporterState,
+  reportsEnabled,
+} from './reporting.js'
+export type { NameVersion, PingResponse, ReportEvent, ReporterOptions, ReporterResult, ReporterState } from './reporting.js'
