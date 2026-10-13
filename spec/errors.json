@@ -1,5 +1,5 @@
 {
-  "description": "How API answers map to SupertextError codes. `detail` is the response body with tags (`<…>`) removed, trimmed (ASCII whitespace) and cut to 200 characters; null when that leaves nothing. Every vector lists the expected detail. `apiErrorCode` is the body's JSON `error_code` (null if the body isn't a JSON object with a string error_code). invalid_language_pair: HTTP 400 whose body contains the text INVALID_LANGUAGE_PAIR (JSON or not); sourceLang/targetLang come from the JSON body's source_lang/target_lang when they are strings (else null). Every HTTP 5xx is service_unavailable. HTTP 429 is first retried (see retry-delay.json); this table applies once the retries are used up.",
+  "description": "How API answers map to SupertextError codes. `detail` is the response body with tags (`<…>`) removed, trimmed (ASCII whitespace) and cut to 200 characters; null when that leaves nothing. Every vector lists the expected detail. `apiErrorCode` is the body's JSON `error_code` (null if the body isn't a JSON object with a string error_code). invalid_language_pair: HTTP 400 or 404 whose body contains the text INVALID_LANGUAGE_PAIR (JSON or not); sourceLang/targetLang come from the JSON body's source_lang/target_lang when they are strings (else null). Every HTTP 5xx is service_unavailable. HTTP 429 is first retried (see retry-delay.json); this table applies once the retries are used up.",
   "http": [
     {
       "status": 400,
@@ -27,6 +27,15 @@
       "apiErrorCode": null,
       "sourceLang": null,
       "targetLang": null
+    },
+    {
+      "status": 404,
+      "body": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\",\"message\":\"This language combination is not supported.\",\"source_lang\":\"en\",\"target_lang\":\"xx-YY\"}",
+      "code": "invalid_language_pair",
+      "detail": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\",\"message\":\"This language combination is not supported.\",\"source_lang\":\"en\",\"target_lang\":\"xx-YY\"}",
+      "apiErrorCode": "INVALID_LANGUAGE_PAIR",
+      "sourceLang": "en",
+      "targetLang": "xx-YY"
     },
     {
       "status": 400,
@@ -220,7 +229,7 @@
   "codes": {
     "missing_api_key": "No API key configured. No request was sent.",
     "authentication_failure": "HTTP 401/403: the key is wrong, revoked or lacks access.",
-    "invalid_language_pair": "HTTP 400 INVALID_LANGUAGE_PAIR: usually a bare target (\"de\") or a regional source (\"en-US\").",
+    "invalid_language_pair": "HTTP 400 (or 404 for an unknown language) INVALID_LANGUAGE_PAIR: usually a bare target (\"de\") or a regional source (\"en-US\").",
     "not_found": "HTTP 404: unknown file id (expired after 24 h or already deleted).",
     "payload_too_large": "HTTP 413: the document is over the API's size limit.",
     "too_many_requests": "HTTP 429 after all retries.",

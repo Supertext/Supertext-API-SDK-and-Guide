@@ -65,7 +65,7 @@ Everything the API or the client can't handle is a `SupertextException` with `Co
 | --- | --- | --- |
 | `missing_api_key` | No key configured; nothing was sent | Enter the API key in the settings (with the account and API-key links above) |
 | `authentication_failure` | HTTP 401/403 | The API key is wrong or revoked: check it (links above) |
-| `invalid_language_pair` | HTTP 400 `INVALID_LANGUAGE_PAIR` | Supertext doesn't support this language combination; check the language mapping |
+| `invalid_language_pair` | HTTP 400 (404 for an unknown language) `INVALID_LANGUAGE_PAIR` | Supertext doesn't support this language combination; check the language mapping |
 | `not_found` | HTTP 404 | The file expired or was deleted; try again |
 | `payload_too_large` | HTTP 413 | The content is too large; translate less at once |
 | `too_many_requests` | HTTP 429 after all retries | Too many requests; try again in a moment |

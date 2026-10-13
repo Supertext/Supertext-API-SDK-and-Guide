@@ -406,7 +406,7 @@ public final class SupertextClient {
         String message;
         String sourceLang = null;
         String targetLang = null;
-        if (status == 400 && ("INVALID_LANGUAGE_PAIR".equals(apiErrorCode) || text.contains("INVALID_LANGUAGE_PAIR"))) {
+        if ((status == 400 || status == 404) && ("INVALID_LANGUAGE_PAIR".equals(apiErrorCode) || text.contains("INVALID_LANGUAGE_PAIR"))) {
             code = ErrorCode.INVALID_LANGUAGE_PAIR;
             sourceLang = Json.stringField(text, "source_lang");
             targetLang = Json.stringField(text, "target_lang");

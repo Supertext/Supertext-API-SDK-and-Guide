@@ -235,7 +235,7 @@ The SDKs throw one error type with a stable `code`, an English `message`, and wh
 | --- | --- | --- |
 | `missing_api_key` | No key configured | Where to enter the key, plus the account and API key links |
 | `authentication_failure` | HTTP 401/403 | The key was rejected: check or regenerate it (links) |
-| `invalid_language_pair` | HTTP 400 `INVALID_LANGUAGE_PAIR` | Supertext doesn't translate from X into Y: check the Supertext code for this language (with a region, e.g. `de-CH`) |
+| `invalid_language_pair` | HTTP 400 (404 for an unknown language) `INVALID_LANGUAGE_PAIR` | Supertext doesn't translate from X into Y: check the Supertext code for this language (with a region, e.g. `de-CH`) |
 | `quota_exceeded` | Status `limit_exceeded` | The Supertext translation limit is used up: upgrade the subscription |
 | `too_many_requests` | HTTP 429 after retries | Too many requests right now: try again in a minute |
 | `payload_too_large` | HTTP 413 | Too much content at once: translate less (or lower the batch size) |

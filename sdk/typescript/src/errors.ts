@@ -102,7 +102,7 @@ export function errorForStatus(status: number, body: string): SupertextError {
   if (apiErrorCode !== undefined) details.apiErrorCode = apiErrorCode
 
   let code: SupertextErrorCode
-  if (status === 400 && body.includes('INVALID_LANGUAGE_PAIR')) {
+  if ((status === 400 || status === 404) && body.includes('INVALID_LANGUAGE_PAIR')) {
     code = 'invalid_language_pair'
     const sourceLang = str(json?.source_lang)
     const targetLang = str(json?.target_lang)

@@ -23,7 +23,7 @@ Wherever the docs or a README mention the API key, show both links: "No Supertex
 - **Upload:** multipart; the file part's Content-Type must be exactly `text/html` (a charset gives 415). Max 1,000,000 characters per document.
 - **Rate limit:** HTTP 429 `RATE_LIMIT_EXCEEDED`; retry up to 4 times (`Retry-After`, else 1/2/4/8 s with jitter, cap 30 s). Documents one after the other.
 - **Rich text:** each `data-st-id` element is translated on its own: one per paragraph with inline tags, never one per formatted run.
-- **Language codes:** source = bare language (`en`), target = regional code (`de-DE`, `en-US`); Supertext rejects bare targets (`INVALID_LANGUAGE_PAIR`). Bare locales get a regional default (`spec/language-codes.json`).
+- **Language codes:** source = bare language (`en`), target = regional code (`de-DE`, `en-US`); Supertext rejects bare targets (`INVALID_LANGUAGE_PAIR`, HTTP 400). A language it doesn't know at all (`xx-YY`) gets HTTP 404 with the same `error_code`. Bare locales get a regional default (`spec/language-codes.json`).
 
 When a plugin learns something new about the API, add it here, to the guide, and (if the SDKs should handle it) to the spec and all SDKs.
 

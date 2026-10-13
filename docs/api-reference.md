@@ -50,6 +50,7 @@ Deletes the uploaded file and its translation. Files expire after 24 hours anywa
 | HTTP | Body (`error_code`) | Meaning |
 | --- | --- | --- |
 | 400 | `INVALID_LANGUAGE_PAIR` | Unsupported pair; usually a bare target (`de`) or a regional source (`en-US`) |
+| 404 | `INVALID_LANGUAGE_PAIR` | A language Supertext doesn't know at all (target `xx-YY`; seen on the live API, October 2026) |
 | 400 | | Missing `Supertext-Auth-Key` prefix, malformed request |
 | 401, 403 | | Key missing, wrong or revoked; `403` also for a wrong header name (`Authentication`) |
 | 404 | | Unknown file id (expired or deleted) |

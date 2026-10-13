@@ -419,7 +419,7 @@ public sealed partial class SupertextClient
             // Not JSON: no API error code.
         }
 
-        var invalidPair = status == 400 && (apiErrorCode == "INVALID_LANGUAGE_PAIR" || body.Contains("INVALID_LANGUAGE_PAIR", StringComparison.Ordinal));
+        var invalidPair = (status == 400 || status == 404) && (apiErrorCode == "INVALID_LANGUAGE_PAIR" || body.Contains("INVALID_LANGUAGE_PAIR", StringComparison.Ordinal));
         var (code, message) = status switch
         {
             _ when invalidPair => (SupertextErrorCodes.InvalidLanguagePair,
