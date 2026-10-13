@@ -7,47 +7,82 @@ from typing import Any
 import pytest
 from conftest import FakeTransport, json_response, make_client, spec, text_response
 
-from supertext import (
+from supertext.v1 import (
     DEFAULT_MAX_CHARACTERS,
     ErrorCode,
     HtmlDocument,
-    LanguageCodes,
+    Languages,
     Segment,
     SupertextError,
     auth_header,
+    languages,
     plan_batches,
     retry_delay_ms,
 )
-from supertext.errors import error_for_response
+from supertext.v1.errors import error_for_response
 
-LANGUAGES = spec("language-codes.json")
+LANGUAGES = spec("languages.json")
 HTML = spec("html-document.json")
 ERRORS = spec("errors.json")
 BATCHING = spec("batching.json")
 
 
-def test_default_regions() -> None:
-    assert dict(LanguageCodes.DEFAULT_REGIONS) == LANGUAGES["defaultRegions"]
+def test_language_lists() -> None:
+    assert [{"code": lang.code, "name": lang.name} for lang in Languages.SOURCES] == LANGUAGES["sources"]
+    assert [
+        {"code": lang.code, "name": lang.name, "politeness": lang.politeness} for lang in Languages.TARGETS
+    ] == LANGUAGES["targets"]
+    assert languages.SOURCES is Languages.SOURCES
+    assert isinstance(Languages.TARGETS, tuple)
+    with pytest.raises(AttributeError):
+        Languages.TARGETS[0].code = "xx"  # type: ignore[misc]
 
 
-@pytest.mark.parametrize("case", LANGUAGES["normalize"], ids=lambda c: repr(c["in"]))
-def test_normalize(case: dict[str, Any]) -> None:
-    assert LanguageCodes.normalize(case["in"]) == case["out"]
+@pytest.mark.parametrize("case", LANGUAGES["matchTarget"], ids=lambda c: repr(c["in"]))
+def test_match_target(case: dict[str, Any]) -> None:
+    assert Languages.match_target(case["in"]) == case["out"]
+    assert Languages.is_supported_target(case["in"]) is (case["out"] is not None)
 
 
-@pytest.mark.parametrize("case", LANGUAGES["source"], ids=lambda c: repr(c["in"]))
-def test_source(case: dict[str, Any]) -> None:
-    assert LanguageCodes.source(case["in"], case.get("overrides")) == case["out"]
+@pytest.mark.parametrize("case", LANGUAGES["matchSource"], ids=lambda c: repr(c["in"]))
+def test_match_source(case: dict[str, Any]) -> None:
+    assert Languages.match_source(case["in"]) == case["out"]
 
 
-@pytest.mark.parametrize("case", LANGUAGES["target"], ids=lambda c: f"{c['in']!r} {c.get('overrides')}")
-def test_target(case: dict[str, Any]) -> None:
-    assert LanguageCodes.target(case["in"], case.get("overrides")) == case["out"]
+def test_is_supported_source() -> None:
+    assert Languages.is_supported_source("EN")
+    assert Languages.is_supported_source("gsw")
+    assert not Languages.is_supported_source("en-US")
+    assert not Languages.is_supported_source("")
 
 
-@pytest.mark.parametrize("case", LANGUAGES["isValid"], ids=lambda c: repr(c["in"]))
-def test_is_valid(case: dict[str, Any]) -> None:
-    assert LanguageCodes.is_valid(case["in"]) is case["out"]
+@pytest.mark.parametrize("case", LANGUAGES["resolveTarget"], ids=lambda c: f"{c['in']!r} {c.get('mapping')}")
+def test_resolve_target(case: dict[str, Any]) -> None:
+    if "error" in case:
+        with pytest.raises(SupertextError) as raised:
+            Languages.target(case["in"], case.get("mapping"))
+        assert raised.value.code == case["error"]
+        assert raised.value.target_lang == (case["in"].strip() or None)
+        assert raised.value.source_lang is None
+    else:
+        assert Languages.target(case["in"], case.get("mapping")) == case["out"]
+
+
+@pytest.mark.parametrize("case", LANGUAGES["resolveSource"], ids=lambda c: f"{c['in']!r} {c.get('mapping')}")
+def test_resolve_source(case: dict[str, Any]) -> None:
+    if "error" in case:
+        with pytest.raises(SupertextError) as raised:
+            Languages.source(case["in"], case.get("mapping"))
+        assert raised.value.code == case["error"]
+        assert raised.value.source_lang == case["in"].strip()
+        assert raised.value.target_lang is None
+    else:
+        assert Languages.source(case["in"], case.get("mapping")) == case["out"]
+
+
+@pytest.mark.parametrize("case", LANGUAGES["supportsPoliteness"], ids=lambda c: repr(c["in"]))
+def test_supports_politeness(case: dict[str, Any]) -> None:
+    assert Languages.supports_politeness(case["in"]) is case["out"]
 
 
 @pytest.mark.parametrize("case", spec("auth-header.json")["cases"], ids=lambda c: repr(c["in"]))
@@ -93,6 +128,7 @@ def test_http_errors(case: dict[str, Any]) -> None:
     assert error.api_error_code == case["apiErrorCode"]
     assert error.source_lang == case["sourceLang"]
     assert error.target_lang == case["targetLang"]
+    assert error.feature == case["feature"]
 
 
 @pytest.mark.parametrize("case", [c for c in ERRORS["http"] if c["status"] != 429], ids=lambda c: str(c["status"]))

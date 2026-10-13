@@ -1,7 +1,7 @@
-import com.supertext.sdk.Politeness;
-import com.supertext.sdk.Segment;
-import com.supertext.sdk.SupertextClient;
-import com.supertext.sdk.SupertextException;
+import com.supertext.sdk.v1.Politeness;
+import com.supertext.sdk.v1.Segment;
+import com.supertext.sdk.v1.SupertextClient;
+import com.supertext.sdk.v1.SupertextException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -16,7 +16,8 @@ import java.util.Map;
 
 /**
  * Conformance program for stand-in/conformance.mjs (see spec/conformance.json): reads one request
- * as JSON on stdin, translates it with translateTexts and prints the result as JSON.
+ * as JSON on stdin, translates it with the v1 client's translateTexts (language codes passed through
+ * as given) and prints the result as JSON.
  *
  * <pre>
  * mvn -q package -DskipTests

@@ -1,6 +1,6 @@
 {
   "name": "supertext-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Client for the Supertext AI translation API: translate HTML and texts, with language codes, rate-limit retries and HTML packing handled for you.",
   "license": "MIT",
   "author": "Supertext AG",
@@ -26,6 +26,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./v1": {
+      "types": "./dist/v1/index.d.ts",
+      "import": "./dist/v1/index.js"
     }
   },
   "files": [
@@ -37,7 +41,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "conformance": "npm run build && cd ../.. && node stand-in/conformance.mjs -- node sdk/typescript/examples/conformance.mjs",

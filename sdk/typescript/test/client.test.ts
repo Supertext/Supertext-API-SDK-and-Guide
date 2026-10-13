@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HtmlDocument, SupertextClient, SupertextError, type SupertextClientOptions } from '../src/index.js'
+import { HtmlDocument, SupertextClient, SupertextError, type SupertextClientOptions } from '../src/v1/index.js'
 
 interface Call {
   method: string
@@ -64,7 +64,7 @@ async function translatedEcho(call: Call): Promise<string> {
 describe('submit', () => {
   it('sends the multipart fields in order, with an exact text/html file part', async () => {
     const { client, calls } = harness([json({ file_id: 'f1' })])
-    expect(await client.submit('<p>Hi</p>', 'de', { sourceLang: 'en-US', politeness: 'more' })).toBe('f1')
+    expect(await client.submit('<p>Hi</p>', 'de-DE', { sourceLang: 'en', politeness: 'more' })).toBe('f1')
     const call = calls[0]!
     expect(call.method).toBe('POST')
     expect(call.url).toBe('https://api.test/v1/translate/ai/file')
@@ -95,12 +95,32 @@ describe('submit', () => {
 
   it('leaves out an empty source and the default politeness', async () => {
     const { client, calls } = harness([json({ file_id: 'f1' }), json({ file_id: 'f2' })])
-    await client.submit('x', 'fr_ch')
-    await client.submit('x', 'pt-br', { sourceLang: '', politeness: 'default' })
+    await client.submit('x', 'fr-CH')
+    await client.submit('x', 'pt-BR', { sourceLang: '', politeness: 'default' })
     expect([...calls[0]!.form!.keys()]).toEqual(['target_lang', 'file'])
     expect(calls[0]!.form!.get('target_lang')).toBe('fr-CH')
     expect([...calls[1]!.form!.keys()]).toEqual(['target_lang', 'file'])
     expect(calls[1]!.form!.get('target_lang')).toBe('pt-BR')
+  })
+
+  it('sends the language codes as given, without mapping (only trimmed)', async () => {
+    const { client, calls } = harness([json({ file_id: 'f1' })])
+    await client.submit('x', ' de ', { sourceLang: ' en-US ' })
+    expect(calls[0]!.form!.get('target_lang')).toBe('de')
+    expect(calls[0]!.form!.get('source_lang')).toBe('en-US')
+  })
+
+  it('refuses an empty target without a request', async () => {
+    const { client, calls } = harness([])
+    expect((await caught(client.submit('x', '  '))).code).toBe('unsupported_language')
+    expect(calls).toHaveLength(0)
+  })
+
+  it('lists the language pairs of GET features', async () => {
+    const { client } = harness([
+      json({ supported_features: [{ source_lang: 'en', target_lang: 'de-CH', features: ['supports_politeness'] }, { source_lang: 'en' }, 'x'] }),
+    ])
+    expect(await client.getFeatures()).toEqual([{ sourceLang: 'en', targetLang: 'de-CH', features: ['supports_politeness'] }])
   })
 
   it('sends the headers; the User-Agent option is appended', async () => {
@@ -135,7 +155,7 @@ describe('submit', () => {
 describe('HTTP handling', () => {
   it('retries a 429 with Retry-After, then succeeds', async () => {
     const { client, calls, sleeps } = harness([json({ error_code: 'RATE_LIMIT_EXCEEDED' }, 429, { 'Retry-After': '3' }), json({ file_id: 'f1' })])
-    expect(await client.submit('x', 'de')).toBe('f1')
+    expect(await client.submit('x', 'de-DE')).toBe('f1')
     expect(calls).toHaveLength(2)
     expect(sleeps).toEqual([3000])
     // The same form is sent again.

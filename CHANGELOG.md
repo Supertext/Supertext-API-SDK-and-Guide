@@ -4,6 +4,25 @@ All SDKs in this repository share one version. Format: one section per release, 
 
 ## Unreleased
 
+## 0.2.0 — 2026-10-13
+
+Breaking changes for integrations: the namespace and the language codes.
+
+### Changed
+
+- **Versioned API namespace** in all SDKs: everything that talks to the API moved to `v1` (TypeScript `supertext-sdk/v1` or `import { v1 } from 'supertext-sdk'`, PHP `Supertext\Sdk\V1`, Python `supertext.v1`, .NET `Supertext.Sdk.V1`, Java `com.supertext.sdk.v1`), so a later API version can be offered next to it. The SDK version constant (`SDK_VERSION`, PHP `Supertext::SDK_VERSION`, .NET `SdkInfo.Version`, Java `SdkInfo.VERSION`) and the generic HTTP layer stay outside. Python's client class is now `SupertextClient` like the others.
+- **No more language-code guessing.** `LanguageCodes` (default regions, normalizing, variant stripping) is replaced by `Languages`: the API's 28 source and 37 target languages from the live `GET features` (`spec/languages.json`), with names and whether a target offers formal/informal. A CMS code is resolved by the integration's mapping, else an exact match (case and `_`/`-` ignored: `de_CH` → `de-CH`), else the new error `unsupported_language`; nothing is sent then. The client sends the codes it is given (trimmed). The old default regions were wrong for most languages: Supertext wants bare `es`, `nl`, `sl`, `cs`, … (not `es-ES`, `sl-SI`), `zh-Hans`/`zh-Hant` and `sr-Latn`/`sr-Cyrl`, and doesn't offer ar, et, lt, lv, ro, th, uk or vi at all.
+
+### Added
+
+- `getFeatures()` on the client: the language pairs the API offers right now, with their features.
+- Error `unsupported_feature` (HTTP 400 `FEATURE_ERROR`, with `feature`): e.g. politeness for `en-US`, `rm`, `sq`, `sr-*` or `gsw-*`. `Languages.supportsPoliteness()` tells integrations where to offer formal/informal.
+- The stand-in accepts exactly the live language list, answers unknown pairs with HTTP 404 like the live API, rejects politeness where it isn't offered, and lists the pairs on `GET features`.
+
+### Fixed
+
+- `invalid_language_pair` is documented with HTTP 404, which the live API now answers for every pair it doesn't offer.
+
 ## 0.1.0 — 2026-10-13
 
 ### Changed

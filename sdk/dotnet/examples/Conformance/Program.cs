@@ -1,11 +1,12 @@
 // Conformance program for stand-in/conformance.mjs: reads one request as JSON on stdin,
-// translates it with TranslateTextsAsync and prints the result (or the error) as JSON.
+// translates it with the v1 client's TranslateTextsAsync (language codes passed through as given)
+// and prints the result (or the error) as JSON.
 //
 //   node stand-in/conformance.mjs -- dotnet sdk/dotnet/examples/Conformance/bin/Release/net8.0/Conformance.dll
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Supertext.Sdk;
+using Supertext.Sdk.V1;
 
 // UTF-8 both ways, also on Windows consoles.
 Console.InputEncoding = new System.Text.UTF8Encoding(false);

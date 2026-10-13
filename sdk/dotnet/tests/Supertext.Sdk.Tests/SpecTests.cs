@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Supertext.Sdk.V1;
 
 namespace Supertext.Sdk.Tests;
 
@@ -7,10 +8,11 @@ public class SpecTests
 {
     public static IEnumerable<object[]> AuthCases() => Spec.Cases("auth-header.json", "cases");
     public static IEnumerable<object[]> RetryCases() => Spec.Cases("retry-delay.json", "cases");
-    public static IEnumerable<object[]> NormalizeCases() => Spec.Cases("language-codes.json", "normalize");
-    public static IEnumerable<object[]> SourceCases() => Spec.Cases("language-codes.json", "source");
-    public static IEnumerable<object[]> TargetCases() => Spec.Cases("language-codes.json", "target");
-    public static IEnumerable<object[]> IsValidCases() => Spec.Cases("language-codes.json", "isValid");
+    public static IEnumerable<object[]> MatchTargetCases() => Spec.Cases("languages.json", "matchTarget");
+    public static IEnumerable<object[]> MatchSourceCases() => Spec.Cases("languages.json", "matchSource");
+    public static IEnumerable<object[]> ResolveTargetCases() => Spec.Cases("languages.json", "resolveTarget");
+    public static IEnumerable<object[]> ResolveSourceCases() => Spec.Cases("languages.json", "resolveSource");
+    public static IEnumerable<object[]> PolitenessCases() => Spec.Cases("languages.json", "supportsPoliteness");
     public static IEnumerable<object[]> BuildCases() => Spec.Cases("html-document.json", "build", "name");
     public static IEnumerable<object[]> ParseCases() => Spec.Cases("html-document.json", "parse", "name");
     public static IEnumerable<object[]> BatchingCases() => Spec.Cases("batching.json", "cases", "name");
@@ -52,47 +54,97 @@ public class SpecTests
     }
 
     [Fact]
-    public void DefaultRegionsMatchTheSpec()
+    public void SourceLanguagesMatchTheSpec()
     {
-        var expected = Spec.Load("language-codes.json").GetProperty("defaultRegions").EnumerateObject()
-            .ToDictionary(p => p.Name, p => p.Value.GetString()!);
-        Assert.Equal(expected.OrderBy(kv => kv.Key), LanguageCodes.DefaultRegions.OrderBy(kv => kv.Key));
+        var expected = Spec.Load("languages.json").GetProperty("sources").EnumerateArray()
+            .Select(l => new SourceLanguage(l.Str("code")!, l.Str("name")!));
+        Assert.Equal(expected, Languages.Sources);
+    }
+
+    [Fact]
+    public void TargetLanguagesMatchTheSpec()
+    {
+        var expected = Spec.Load("languages.json").GetProperty("targets").EnumerateArray()
+            .Select(l => new TargetLanguage(l.Str("code")!, l.Str("name")!, l.GetProperty("politeness").GetBoolean()));
+        Assert.Equal(expected, Languages.Targets);
     }
 
     [Theory]
-    [MemberData(nameof(NormalizeCases))]
-    public void Normalize(string name, string json)
+    [MemberData(nameof(MatchTargetCases))]
+    public void MatchTarget(string name, string json)
     {
         _ = name;
         var c = JsonDocument.Parse(json).RootElement;
-        Assert.Equal(c.Str("out"), LanguageCodes.Normalize(c.Str("in")));
+        Assert.Equal(c.Str("out"), Languages.MatchTarget(c.Str("in")));
+        Assert.Equal(c.Str("out") is not null, Languages.IsSupportedTarget(c.Str("in")));
     }
 
     [Theory]
-    [MemberData(nameof(SourceCases))]
-    public void Source(string name, string json)
+    [MemberData(nameof(MatchSourceCases))]
+    public void MatchSource(string name, string json)
     {
         _ = name;
         var c = JsonDocument.Parse(json).RootElement;
-        Assert.Equal(c.Str("out"), LanguageCodes.Source(c.Str("in"), c.Overrides()));
+        Assert.Equal(c.Str("out"), Languages.MatchSource(c.Str("in")));
     }
 
     [Theory]
-    [MemberData(nameof(TargetCases))]
-    public void Target(string name, string json)
+    [MemberData(nameof(ResolveTargetCases))]
+    public void ResolveTarget(string name, string json)
     {
         _ = name;
         var c = JsonDocument.Parse(json).RootElement;
-        Assert.Equal(c.Str("out"), LanguageCodes.Target(c.Str("in"), c.Overrides()));
+        if (c.Str("error") is { } error)
+        {
+            var e = Assert.Throws<SupertextException>(() => Languages.Target(c.Str("in"), c.Mapping()));
+            Assert.Equal(error, e.Code);
+            var trimmed = c.Str("in")!.Trim();
+            Assert.Equal(trimmed.Length > 0 ? trimmed : null, e.TargetLang);
+            Assert.Null(e.SourceLang);
+            Assert.Null(e.Status);
+        }
+        else
+        {
+            Assert.Equal(c.Str("out"), Languages.Target(c.Str("in"), c.Mapping()));
+        }
     }
 
     [Theory]
-    [MemberData(nameof(IsValidCases))]
-    public void IsValid(string name, string json)
+    [MemberData(nameof(ResolveSourceCases))]
+    public void ResolveSource(string name, string json)
     {
         _ = name;
         var c = JsonDocument.Parse(json).RootElement;
-        Assert.Equal(c.GetProperty("out").GetBoolean(), LanguageCodes.IsValid(c.Str("in")));
+        if (c.Str("error") is { } error)
+        {
+            var e = Assert.Throws<SupertextException>(() => Languages.Source(c.Str("in"), c.Mapping()));
+            Assert.Equal(error, e.Code);
+            Assert.Equal(c.Str("in")!.Trim(), e.SourceLang);
+            Assert.Null(e.TargetLang);
+        }
+        else
+        {
+            Assert.Equal(c.Str("out"), Languages.Source(c.Str("in"), c.Mapping()));
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(PolitenessCases))]
+    public void SupportsPoliteness(string name, string json)
+    {
+        _ = name;
+        var c = JsonDocument.Parse(json).RootElement;
+        var expected = c.GetProperty("out").ValueKind == JsonValueKind.Null ? (bool?)null : c.GetProperty("out").GetBoolean();
+        Assert.Equal(expected, Languages.SupportsPoliteness(c.Str("in")));
+    }
+
+    [Fact]
+    public void IsSupportedSourceIsAnExactMatch()
+    {
+        Assert.True(Languages.IsSupportedSource(" EN "));
+        Assert.True(Languages.IsSupportedSource("gsw"));
+        Assert.False(Languages.IsSupportedSource("en-US"));
+        Assert.False(Languages.IsSupportedSource(""));
     }
 
     private static List<Segment> Segments(JsonElement c) =>
@@ -155,6 +207,7 @@ public class SpecTests
         Assert.Equal(c.Str("apiErrorCode"), e.ApiErrorCode);
         Assert.Equal(c.Str("sourceLang"), e.SourceLang);
         Assert.Equal(c.Str("targetLang"), e.TargetLang);
+        Assert.Equal(c.Str("feature"), e.Feature);
         Assert.Equal(c.Str("detail"), e.Detail);
         // 429 is retried first (4 times by default), the others are not.
         Assert.Equal(status == 429 ? 5 : 1, api.Requests.Count);

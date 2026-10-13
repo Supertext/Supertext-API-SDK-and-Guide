@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Supertext.Sdk.V1;
 
 namespace Supertext.Sdk.Tests;
 
@@ -49,7 +50,7 @@ public class ReportingTests
     [Fact]
     public void SdkVersionMatchesThePackage()
     {
-        Assert.Equal(SupertextClient.SdkVersion, typeof(SupertextClient).Assembly.GetName().Version!.ToString(3));
+        Assert.Equal(SdkInfo.Version, typeof(SupertextClient).Assembly.GetName().Version!.ToString(3));
     }
 
     [Theory]

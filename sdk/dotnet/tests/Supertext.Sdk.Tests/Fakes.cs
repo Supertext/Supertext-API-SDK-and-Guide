@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Supertext.Sdk.V1;
 
 namespace Supertext.Sdk.Tests;
 
@@ -12,7 +13,7 @@ internal static class Spec
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
             var candidate = Path.Combine(dir.FullName, "spec");
-            if (File.Exists(Path.Combine(candidate, "language-codes.json")))
+            if (File.Exists(Path.Combine(candidate, "languages.json")))
             {
                 return candidate;
             }
@@ -41,8 +42,8 @@ internal static class Spec
     public static string? Str(this JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
-    public static Dictionary<string, string>? Overrides(this JsonElement e) =>
-        e.TryGetProperty("overrides", out var o) ? o.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!) : null;
+    public static Dictionary<string, string>? Mapping(this JsonElement e) =>
+        e.TryGetProperty("mapping", out var o) ? o.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!) : null;
 }
 
 /// <summary>A request as the fake transport saw it.</summary>

@@ -1,6 +1,6 @@
 # Supertext SDK for PHP
 
-Client for the Supertext AI translation API: translate HTML and texts, with language codes, rate-limit retries and HTML packing handled for you.
+Client for the Supertext AI translation API: translate HTML and texts, with the supported languages, rate-limit retries and HTML packing handled for you.
 
 PHP 8.1+, no other dependencies. The built-in HTTP transport uses ext-curl; if you plug in your own HTTP client (see [Your own HTTP client](#your-own-http-client)), curl isn't needed. For the protocol and the lessons behind it, see the [integration guide](../../docs/integration-guide.md).
 
@@ -16,9 +16,11 @@ You need an API key. No Supertext account yet? Create one at https://www.superte
 
 ## Quick start
 
+Everything that talks to the API is in the namespace of its API version, `Supertext\Sdk\V1` (a later API version gets `Supertext\Sdk\V2` next to it, so integrations can move at their own pace). Only the HTTP transport (`Supertext\Sdk\Http`) and `Supertext\Sdk\Supertext::SDK_VERSION` are version-neutral.
+
 ```php
-use Supertext\Sdk\Client;
-use Supertext\Sdk\Segment;
+use Supertext\Sdk\V1\Client;
+use Supertext\Sdk\V1\Segment;
 
 $client = new Client(getenv('SUPERTEXT_API_KEY'), userAgent: 'MyCms-Supertext/1.0.0');
 
@@ -26,7 +28,7 @@ $client = new Client(getenv('SUPERTEXT_API_KEY'), userAgent: 'MyCms-Supertext/1.
 $translations = $client->translateTexts([
     'title' => 'Hello & welcome',
     'body'  => Segment::html('<p>Our <b>new</b> shop opens on <a href="https://example.com">Monday</a>.</p>'),
-], targetLang: 'de', sourceLang: 'en');
+], targetLang: 'de-CH', sourceLang: 'en');
 // ['title' => 'Hallo und willkommen', 'body' => '<p>Unser <b>neuer</b> Shop …</p>']
 
 // A whole HTML document.
@@ -37,32 +39,39 @@ $html = $client->translateHtml('<html><body><p>Hello</p></body></html>', 'fr-CH'
 
 Send a whole paragraph, heading or field as **one** segment, with formatting and links as inline tags. Supertext translates every segment on its own: splitting a sentence at its formatting breaks the translation.
 
-The steps are available on their own too: `submit()` → `waitUntilDone()` → `download()` → `delete()` (never throws), `getStatus()`, `validateApiKey()` (a cost-free check that throws) and `checkApiKey()` (the same check as a result, see [below](#api-key-check-version-reports-and-ping)). `HtmlDocument::build()` / `parse()` pack and unpack segments if you drive the steps yourself.
+The steps are available on their own too: `submit()` → `waitUntilDone()` → `download()` → `delete()` (never throws), `getStatus()`, `getFeatures()` (the language pairs the API offers, see [Languages](#languages)), `validateApiKey()` (a cost-free check that throws) and `checkApiKey()` (the same check as a result, see [below](#api-key-check-version-reports-and-ping)). `HtmlDocument::build()` / `parse()` pack and unpack segments if you drive the steps yourself.
 
-## Language codes
+## Languages
 
-Supertext wants the **source as a bare language** (`en`) and the **target as a regional code** (`de-DE`); anything else is rejected with `invalid_language_pair`. The client fixes this up for you, so you can pass CMS locales as they are (`de`, `de_ch`, `en-US`, `pt-br`):
+The client sends language codes **as you give them** (trimmed). Supertext expects exact codes: the source as a bare language (`en`), the target as listed in `Languages::TARGETS`: regional for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), a dialect for Swiss German (`gsw-u-sd-chzh`), bare for the others (`es`, `nl`). Anything else is rejected with `invalid_language_pair`.
 
-```php
-use Supertext\Sdk\LanguageCodes;
-
-LanguageCodes::target('de');      // "de-DE" (bare languages get a default region)
-LanguageCodes::target('de_ch');   // "de-CH"
-LanguageCodes::target('de_DE_formal'); // "de-DE" (variants dropped; formal address: politeness)
-LanguageCodes::source('en-GB');   // "en"
-LanguageCodes::isValid('german'); // false
-```
-
-If a site needs another region than the default (a Swiss site writing `de`), let administrators set overrides and apply them before calling the client:
+There are no default regions and no guessing: whether a site's `de` means Germany or Switzerland is the administrator's decision. Give your integration a language setting (CMS language → Supertext code) and resolve every CMS language with `Languages` before calling the client:
 
 ```php
-$overrides = ['de' => 'de-CH', 'no' => 'nb-NO']; // CMS locale → Supertext code
-$client->translateTexts($texts, LanguageCodes::target($cmsLocale, $overrides), $cmsSourceLocale);
+use Supertext\Sdk\V1\Languages;
+
+$mapping = ['de' => 'de-CH', 'no' => 'nb']; // the administrator's setting: CMS language → Supertext code
+
+Languages::target('de', $mapping);  // "de-CH" (the mapping wins; its value is sent as it is)
+Languages::target('fr_fr');         // "fr-FR" (equal to a supported code apart from case and _/-)
+Languages::target('de');            // SupertextException unsupported_language (targetLang "de"): ask the administrator to map it
+Languages::source('en-US');         // "en" (sources have no regions)
+Languages::source('');              // "" (auto-detect)
+
+$client->translateTexts($texts, Languages::target($cmsLocale, $mapping), Languages::source($cmsSourceLocale));
 ```
+
+- `Languages::SOURCES` (`code`, `name`) and `Languages::TARGETS` (`code`, `name`, `politeness`): the languages the API offered in October 2026, e.g. for the setting's drop-downs.
+- `matchTarget($code)` / `matchSource($code)`: the supported code, or `null` (`matchSource` also takes the first subtag: `en-GB` → `en`). Use them to pre-fill the setting.
+- `target($code, $mapping = [])` / `source($code, $mapping = [])`: the code to send; `unsupported_language` (nothing is sent) when there is neither a mapping nor a match. A mapping value is sent even if it isn't in the list, so a language Supertext adds later works before the SDK knows it.
+- `supportsPoliteness($target)`: whether formal/informal is offered (`null` for an unknown code). Hide the choice for the others: the API answers `unsupported_feature`.
+- `isSupportedTarget($code)`, `isSupportedSource($code)`.
+
+For the live list, `$client->getFeatures()` returns the API's language pairs as `FeatureSupport` objects (`sourceLang`, `targetLang`, `features` such as `supports_politeness`); it is cost-free.
 
 ## Politeness
 
-`Politeness::DEFAULT` (default), `Politeness::MORE` (formal: Sie, vous, Lei) or `Politeness::LESS` (informal: du, tu). Only `more` and `less` are sent; any other value lets Supertext decide.
+`Politeness::DEFAULT` (default), `Politeness::MORE` (formal: Sie, vous, Lei) or `Politeness::LESS` (informal: du, tu). Only `more` and `less` are sent; any other value lets Supertext decide. Not every target offers it (`Languages::supportsPoliteness()`; e.g. not `en-US`, `rm`, `sq`): sending `more` or `less` for those fails with `unsupported_feature`.
 
 ```php
 $client->translateTexts($texts, 'de-CH', 'en', Politeness::MORE);
@@ -70,13 +79,15 @@ $client->translateTexts($texts, 'de-CH', 'en', Politeness::MORE);
 
 ## Errors
 
-Everything fails with `Supertext\Sdk\SupertextException`. `$e->errorCode` is one of the constants below (the same strings in every Supertext SDK); `$e->status` (HTTP status), `$e->detail` (short text from the answer), `$e->apiErrorCode` (e.g. `INVALID_LANGUAGE_PAIR`) and, for language pairs, `$e->sourceLang` / `$e->targetLang` help with logs. Messages are English and never contain the API key.
+Everything fails with `Supertext\Sdk\V1\SupertextException`. `$e->errorCode` is one of the constants below (the same strings in every Supertext SDK); `$e->status` (HTTP status), `$e->detail` (short text from the answer), `$e->apiErrorCode` (e.g. `INVALID_LANGUAGE_PAIR`), for language problems `$e->sourceLang` / `$e->targetLang`, and for `unsupported_feature` `$e->feature` (e.g. `politeness`) help with messages and logs. Messages are English and never contain the API key.
 
 | Code | What to tell the user |
 | --- | --- |
 | `missing_api_key` | No API key is configured (nothing was sent). Show the account and API key links above. |
 | `authentication_failure` | The API key is wrong, revoked or lacks access. Show the account and API key links above. |
-| `invalid_language_pair` | Supertext doesn't support this language pair. Check the language settings or overrides. |
+| `invalid_language_pair` | Supertext doesn't support this language pair. Check the language settings. |
+| `unsupported_language` | This language has no Supertext code (nothing was sent; `targetLang` or `sourceLang` names it). Ask the administrator to map it. |
+| `unsupported_feature` | Supertext offers the language pair, but not with this option (`feature`, e.g. `politeness`). Hide or reset the option for that language. |
 | `not_found` | The file expired or was deleted. Try again. |
 | `payload_too_large` | The content is too large. Lower `maxCharacters` or split it. |
 | `too_many_requests` | Too many requests, even after retries. Try again shortly. |
@@ -153,15 +164,15 @@ Every Supertext plugin checks its API key automatically and, unless switched off
 
 `$client->checkApiKey()` sends the cost-free `GET features` (10 s timeout, or the request timeout if shorter; the usual 429 retries) and never throws. It returns an `ApiKeyCheck` with `status` (`ApiKeyCheck::OK` for 2xx, `INVALID` for 401/403, `MISSING` for a blank key without a request, `UNREACHABLE` without an answer or for 5xx, `ERROR` otherwise), `checkedAt` (`2026-10-13T08:00:00Z`), `httpStatus`, `errorCode` (the answer's `error_code`) and `fingerprint`. Show it on the settings page; for `invalid` and `missing`, add the account and API key links: No Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (supertext.com → Integrations → API; requires the Admin role).
 
-`Supertext::apiKeyFingerprint($key)` is the SHA-256 of the key as it is sent (prefix stripped), `''` for a blank key. It is kept locally to notice a changed key and is never sent.
+`Protocol::apiKeyFingerprint($key)` (`Supertext\Sdk\V1\Protocol`, next to `authHeader()` and `retryDelayMs()`) is the SHA-256 of the key as it is sent (prefix stripped), `''` for a blank key. It is kept locally to notice a changed key and is never sent.
 
 ### Version reports
 
 `InstallationReporter` runs the check at the right moments and reports to the center. It keeps no state of its own: load the stored `ReporterState`, pass it in, and store `$result->state` again (as JSON, unchanged). No method throws; a failed report is tried again after an hour.
 
 ```php
-use Supertext\Sdk\InstallationReporter;
-use Supertext\Sdk\ReporterState;
+use Supertext\Sdk\V1\InstallationReporter;
+use Supertext\Sdk\V1\ReporterState;
 
 $reporter = new InstallationReporter(
     enabled: InstallationReporter::reportsEnabled($settings->versionReports), // null = not set: on
@@ -188,7 +199,7 @@ $result->check; // the latest ApiKeyCheck, for the settings page
 | `testConnection($state, $apiKey)` | "Test connection" button | checks the key, then like `onRequest` |
 | `reportCheck($state)` | check commands, tests | sends a `check` report now, even after a recent failure |
 
-The result has `state` (store it), `check`, `event` (what was reported or tried; `null` if nothing was due) and `sent` (the center answered 2xx). `buildReport($event, $state)` and `versions()` show what would be sent. The report contains the site URL, the plugin, system, runtime (default `PHP` and `PHP_VERSION`) and SDK versions (`Supertext::SDK_VERSION`), whether a key is configured and the check's status, never the key. It is posted as JSON with a 3 s timeout through the same `HttpTransport` the client uses.
+The result has `state` (store it), `check`, `event` (what was reported or tried; `null` if nothing was due) and `sent` (the center answered 2xx). `buildReport($event, $state)` and `versions()` show what would be sent. The report contains the site URL, the plugin, system, runtime (default `PHP` and `PHP_VERSION`) and SDK versions (`Supertext\Sdk\Supertext::SDK_VERSION`), whether a key is configured and the check's status, never the key. It is posted as JSON with a 3 s timeout through the same `HttpTransport` the client uses.
 
 Reports are on by default. `SUPERTEXT_VERSION_REPORTS` (`0`/`false`/`off`/`no` or `1`/`true`/`on`/`yes`) wins over the plugin's setting in `reportsEnabled()`. The report URL is the `reportUrl` argument, else `SUPERTEXT_REPORT_URL`, else `InstallationReporter::DEFAULT_REPORT_URL`. `apiBaseUrl`, `sleep` and `now` are injectable for tests.
 

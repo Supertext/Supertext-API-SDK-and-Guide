@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Supertext\Sdk\Tests;
 
 use PHPUnit\Framework\TestCase;
-use Supertext\Sdk\Client;
 use Supertext\Sdk\Http\HttpResponse;
 use Supertext\Sdk\Http\TransportException;
-use Supertext\Sdk\Segment;
-use Supertext\Sdk\SupertextException;
+use Supertext\Sdk\V1\Client;
+use Supertext\Sdk\V1\Segment;
+use Supertext\Sdk\V1\SupertextException;
 
 final class ClientTest extends TestCase
 {
@@ -50,7 +50,7 @@ final class ClientTest extends TestCase
     public function testUploadFieldsOrderAndContentType(): void
     {
         $transport = FakeTransport::queue([self::ok('{"file_id":"abc"}')]);
-        $id = $this->client($transport)->submit('<p>Hi</p>', 'de_ch', 'en-GB', 'more');
+        $id = $this->client($transport)->submit('<p>Hi</p>', ' de-CH ', ' en ', 'more');
 
         self::assertSame('abc', $id);
         $request = $transport->requests[0];
@@ -66,22 +66,88 @@ final class ClientTest extends TestCase
     public function testUploadWithoutSourceAndDefaultPoliteness(): void
     {
         $transport = FakeTransport::queue([self::ok('{"file_id":"abc"}')]);
-        $this->client($transport)->submit('<p>Hi</p>', 'de');
+        $this->client($transport)->submit('<p>Hi</p>', 'de-DE');
         [$fields, , $names] = Multipart::parse($transport->requests[0]);
         self::assertSame(['target_lang', 'file'], $names);
         self::assertSame(['target_lang' => 'de-DE'], $fields);
 
         $transport = FakeTransport::queue([self::ok('{"file_id":"abc"}')]);
-        $this->client($transport)->submit('<p>Hi</p>', 'fr', '', 'less');
+        $this->client($transport)->submit('<p>Hi</p>', 'fr-FR', '  ', 'less');
         [$fields] = Multipart::parse($transport->requests[0]);
         self::assertSame(['target_lang' => 'fr-FR', 'politeness' => 'less'], $fields);
+    }
+
+    /** Codes are sent as given (trimmed), even ones the SDK doesn't know: resolving is Languages' job. */
+    public function testLanguageCodesArePassedThrough(): void
+    {
+        $transport = FakeTransport::queue([self::ok('{"file_id":"abc"}')]);
+        $this->client($transport)->submit('<p>Hi</p>', 'de', 'en-US');
+        [$fields] = Multipart::parse($transport->requests[0]);
+        self::assertSame(['target_lang' => 'de', 'source_lang' => 'en-US'], $fields);
+    }
+
+    public function testEmptyTargetIsUnsupportedLanguageWithoutRequest(): void
+    {
+        foreach (['', '  '] as $target) {
+            $transport = FakeTransport::queue([]);
+            try {
+                $this->client($transport, apiKey: '')->submit('<p>Hi</p>', $target);
+                self::fail('expected unsupported_language');
+            } catch (SupertextException $e) {
+                self::assertSame(SupertextException::UNSUPPORTED_LANGUAGE, $e->errorCode);
+                self::assertNull($e->targetLang);
+            }
+            self::assertSame([], $transport->requests);
+        }
+    }
+
+    public function testGetFeatures(): void
+    {
+        $body = json_encode(['supported_features' => [
+            ['source_lang' => 'en', 'target_lang' => 'de-CH', 'features' => ['supports_politeness', 3, 'supports_glossary']],
+            ['source_lang' => 'en', 'target_lang' => 'en-US'],
+            ['source_lang' => 'en'],
+            ['source_lang' => 1, 'target_lang' => 'fr-FR'],
+            'garbage',
+            ['source_lang' => 'de', 'target_lang' => 'rm', 'features' => 'supports_politeness'],
+        ]], JSON_THROW_ON_ERROR);
+        $transport = FakeTransport::queue([self::ok($body)]);
+        $features = $this->client($transport)->getFeatures();
+
+        self::assertSame('GET', $transport->requests[0]->method);
+        self::assertSame('https://api.supertext.com/v1/features', $transport->requests[0]->url);
+        self::assertSame([
+            ['en', 'de-CH', ['supports_politeness', 'supports_glossary']],
+            ['en', 'en-US', []],
+            ['de', 'rm', []],
+        ], array_map(static fn ($f): array => [$f->sourceLang, $f->targetLang, $f->features], $features));
+
+        foreach (['{}', '[]', 'not json', '{"supported_features":{"a":1}}'] as $body) {
+            self::assertSame([], $this->client(FakeTransport::queue([self::ok($body)]))->getFeatures());
+        }
+    }
+
+    public function testUnsupportedFeature(): void
+    {
+        $body = '{"error_code":"FEATURE_ERROR","feature":"politeness","source_lang":"de","target_lang":"en-US"}';
+        $transport = FakeTransport::queue([new HttpResponse(400, $body)]);
+        try {
+            $this->client($transport)->submit('<p>Hi</p>', 'en-US', 'de', 'more');
+            self::fail('expected unsupported_feature');
+        } catch (SupertextException $e) {
+            self::assertSame(SupertextException::UNSUPPORTED_FEATURE, $e->errorCode);
+            self::assertSame('politeness', $e->feature);
+            self::assertSame('de', $e->sourceLang);
+            self::assertSame('en-US', $e->targetLang);
+            self::assertSame(400, $e->status);
+        }
     }
 
     public function testOtherPolitenessValuesAreNotSent(): void
     {
         foreach (['default', 'formal', ''] as $politeness) {
             $transport = FakeTransport::queue([self::ok('{"file_id":"abc"}')]);
-            $this->client($transport)->submit('<p>Hi</p>', 'de', null, $politeness);
+            $this->client($transport)->submit('<p>Hi</p>', 'de-DE', null, $politeness);
             [$fields] = Multipart::parse($transport->requests[0]);
             self::assertSame(['target_lang' => 'de-DE'], $fields);
         }
@@ -340,7 +406,7 @@ final class ClientTest extends TestCase
             'body' => Segment::html('<p>World <b>bold</b></p>'),
             'lines' => new Segment("Hello\nWorld"),
             7 => 'numeric key',
-        ], 'de', 'en-US', 'less');
+        ], 'de-DE', 'en', 'less');
 
         self::assertSame([
             'title' => 'Hallo & <you>',

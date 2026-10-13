@@ -1,7 +1,8 @@
 """Conformance program for stand-in/conformance.mjs (see spec/conformance.json).
 
-Reads one request as JSON on stdin, translates it with translate_texts using SUPERTEXT_API_URL
-and SUPERTEXT_API_KEY, and prints {"translations": …} or {"error": {"code", "status"}}.
+Reads one request as JSON on stdin, translates it with the v1 client's translate_texts (language codes
+passed through as given) using SUPERTEXT_API_URL and SUPERTEXT_API_KEY, and prints {"translations": …}
+or {"error": {"code", "status"}}.
 
     node stand-in/conformance.mjs -- python3 sdk/python/examples/conformance.py
 """
@@ -16,17 +17,17 @@ from pathlib import Path
 # Work from a source checkout too, without installing the package.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-import supertext
+from supertext import v1
 
 
 def main() -> int:
     request = json.load(sys.stdin.buffer)
-    client = supertext.Client(
+    client = v1.SupertextClient(
         os.environ.get("SUPERTEXT_API_KEY", ""),
-        base_url=os.environ.get("SUPERTEXT_API_URL") or supertext.LIVE_BASE_URL,
+        base_url=os.environ.get("SUPERTEXT_API_URL") or v1.LIVE_BASE_URL,
         poll_interval=0.1,
     )
-    segments = {s["key"]: supertext.Segment(s["text"], bool(s.get("html", False))) for s in request["segments"]}
+    segments = {s["key"]: v1.Segment(s["text"], bool(s.get("html", False))) for s in request["segments"]}
     try:
         translations = client.translate_texts(
             segments,
@@ -35,7 +36,7 @@ def main() -> int:
             request.get("politeness") or "default",
         )
         output: dict[str, object] = {"translations": translations}
-    except supertext.SupertextError as error:
+    except v1.SupertextError as error:
         output = {"error": {"code": error.code, "status": error.status}}
     json.dump(output, sys.stdout)
     sys.stdout.write("\n")

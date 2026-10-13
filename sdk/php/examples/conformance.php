@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 /*
  * Conformance program for stand-in/conformance.mjs: reads one request as JSON on stdin, translates it
- * with translateTexts() and prints {"translations": {...}} or {"error": {"code", "status"}}.
+ * with the v1 client's translateTexts() (language codes passed through as given) and prints
+ * {"translations": {...}} or {"error": {"code", "status"}}.
  *
  *   node stand-in/conformance.mjs -- php sdk/php/examples/conformance.php
  */
 
-use Supertext\Sdk\Client;
-use Supertext\Sdk\Politeness;
-use Supertext\Sdk\Segment;
-use Supertext\Sdk\SupertextException;
+use Supertext\Sdk\V1\Client;
+use Supertext\Sdk\V1\Politeness;
+use Supertext\Sdk\V1\Segment;
+use Supertext\Sdk\V1\SupertextException;
 
 require file_exists(__DIR__ . '/../../../vendor/autoload.php') ? __DIR__ . '/../../../vendor/autoload.php' : __DIR__ . '/../autoload.php';
 

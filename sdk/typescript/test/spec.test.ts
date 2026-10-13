@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_MAX_CHARACTERS,
   HtmlDocument,
-  LanguageCodes,
+  Languages,
   SupertextError,
   type SupertextErrorCode,
   authHeader,
@@ -12,21 +12,30 @@ import {
   errorForStatus,
   planBatches,
   retryDelayMs,
-} from '../src/index.js'
+} from '../src/v1/index.js'
 
 const spec = (name: string): any => JSON.parse(readFileSync(new URL(`../../../spec/${name}`, import.meta.url), 'utf8'))
 
-describe('spec/language-codes.json', () => {
-  const s = spec('language-codes.json')
-  it('has the same default regions', () => expect(LanguageCodes.DEFAULT_REGIONS).toEqual(s.defaultRegions))
-  for (const c of s.normalize) it(`normalize ${JSON.stringify(c.in)}`, () => expect(LanguageCodes.normalize(c.in)).toBe(c.out))
-  for (const c of s.source) {
-    it(`source ${JSON.stringify(c.in)} ${JSON.stringify(c.overrides ?? {})}`, () => expect(LanguageCodes.source(c.in, c.overrides)).toBe(c.out))
+describe('spec/languages.json', () => {
+  const s = spec('languages.json')
+  it('has the same source languages', () => expect(Languages.SOURCES).toEqual(s.sources))
+  it('has the same target languages', () => expect(Languages.TARGETS).toEqual(s.targets))
+  for (const c of s.matchTarget) it(`matchTarget ${JSON.stringify(c.in)}`, () => expect(Languages.matchTarget(c.in)).toBe(c.out))
+  for (const c of s.matchSource) it(`matchSource ${JSON.stringify(c.in)}`, () => expect(Languages.matchSource(c.in)).toBe(c.out))
+  const resolve = (fn: (code: string, mapping?: Record<string, string>) => string, c: any) => {
+    if (c.error) {
+      try {
+        fn(c.in, c.mapping)
+        expect.unreachable()
+      } catch (e) {
+        expect(e).toBeInstanceOf(SupertextError)
+        expect((e as SupertextError).code).toBe(c.error)
+      }
+    } else expect(fn(c.in, c.mapping)).toBe(c.out)
   }
-  for (const c of s.target) {
-    it(`target ${JSON.stringify(c.in)} ${JSON.stringify(c.overrides ?? {})}`, () => expect(LanguageCodes.target(c.in, c.overrides)).toBe(c.out))
-  }
-  for (const c of s.isValid) it(`isValid ${JSON.stringify(c.in)}`, () => expect(LanguageCodes.isValid(c.in)).toBe(c.out))
+  for (const c of s.resolveTarget) it(`target ${JSON.stringify(c.in)} ${JSON.stringify(c.mapping ?? {})}`, () => resolve(Languages.target, c))
+  for (const c of s.resolveSource) it(`source ${JSON.stringify(c.in)} ${JSON.stringify(c.mapping ?? {})}`, () => resolve(Languages.source, c))
+  for (const c of s.supportsPoliteness) it(`supportsPoliteness ${JSON.stringify(c.in)}`, () => expect(Languages.supportsPoliteness(c.in)).toBe(c.out))
 })
 
 describe('spec/auth-header.json', () => {
@@ -72,6 +81,7 @@ describe('spec/errors.json', () => {
       expect(e.apiErrorCode).toBe(c.apiErrorCode ?? undefined)
       expect(e.sourceLang).toBe(c.sourceLang ?? undefined)
       expect(e.targetLang).toBe(c.targetLang ?? undefined)
+      expect(e.feature).toBe(c.feature ?? undefined)
       expect(e.message).toMatch(/\S/)
     })
   }

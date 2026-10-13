@@ -12,26 +12,26 @@ import pytest
 from conftest import spec
 
 import supertext
-from supertext import (
+from supertext import SDK_VERSION
+from supertext.v1 import (
     DEFAULT_REPORT_URL,
     FAILURE_BACKOFF,
     KEY_CHECK_TIMEOUT,
     REPORT_TIMEOUT,
-    SDK_VERSION,
     ApiKeyCheck,
-    Client,
     HttpRequest,
     HttpResponse,
     InstallationReporter,
     NameVersion,
     ReporterResult,
     ReporterState,
+    SupertextClient,
     api_key_fingerprint,
     ping_response,
     reporter_state,
     reports_enabled,
 )
-from supertext.api_key_check import parse_iso
+from supertext.v1.api_key_check import parse_iso
 
 S = spec("reporting.json")
 CALLBACK = spec("commando/callback-vectors.json")
@@ -121,7 +121,7 @@ def test_api_key_check(case: dict[str, Any]) -> None:
         timeouts.append(request.timeout)
         return http(request)
 
-    client = Client(
+    client = SupertextClient(
         case["apiKey"],
         base_url="https://api.test/v1/",
         transport=transport,
@@ -147,7 +147,7 @@ def test_key_check_uses_a_shorter_request_timeout() -> None:
         seen.append(request.timeout)
         return HttpResponse(200, b"{}")
 
-    Client("k1", transport=transport, request_timeout=4.0).check_api_key()
+    SupertextClient("k1", transport=transport, request_timeout=4.0).check_api_key()
     assert seen == [4.0]
 
 
@@ -155,7 +155,7 @@ def test_key_check_never_raises_on_unexpected_errors() -> None:
     def transport(request: HttpRequest) -> HttpResponse:
         raise RuntimeError("boom")
 
-    assert Client("k1", transport=transport).check_api_key().status == "error"
+    assert SupertextClient("k1", transport=transport).check_api_key().status == "error"
 
 
 def test_api_key_check_dict_round_trip() -> None:

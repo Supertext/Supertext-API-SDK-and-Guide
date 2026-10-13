@@ -5,7 +5,7 @@
 // Needs the built package: `npm run build` first.
 //
 //   node stand-in/conformance.mjs -- node sdk/typescript/examples/conformance.mjs
-import { SupertextClient, SupertextError } from '../dist/index.js'
+import { SupertextClient, SupertextError } from '../dist/v1/index.js'
 
 let input = ''
 for await (const chunk of process.stdin) input += chunk

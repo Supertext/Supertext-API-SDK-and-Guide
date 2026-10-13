@@ -21,13 +21,13 @@ You need a Supertext API key. No Supertext account yet? Create one at [supertext
 
 The packages aren't on the public registries yet; until they are, install from this repository or the files attached to a [release](https://github.com/Supertext/Supertext-API-SDK-and-Guide/releases).
 
-All five offer the same things, named the way each language expects:
+All five offer the same things, named the way each language expects, in a **`v1` namespace** for the API version (TypeScript `supertext-sdk/v1`, PHP `Supertext\Sdk\V1`, Python `supertext.v1`, .NET `Supertext.Sdk.V1`, Java `com.supertext.sdk.v1`), so a later API version can sit next to it:
 
 - `translateTexts(segments, target, source?, politeness?)`: many keyed texts (plain or HTML) in one go, split into documents under the size limit, translated one after the other, read back by key.
 - `translateHtml(html, target, source?, politeness?)`: one HTML document, the full round trip.
-- The single steps (`submit`, `getStatus`, `waitUntilDone`, `download`, `delete`) and `validateApiKey` (a cost-free key check for settings pages).
+- The single steps (`submit`, `getStatus`, `waitUntilDone`, `download`, `delete`), `validateApiKey` (a cost-free key check for settings pages) and `getFeatures` (the language pairs the API offers right now).
 - The Commando Center building blocks every Supertext plugin uses: `checkApiKey` (the automatic key check with its result), `InstallationReporter` (version reports) and `pingResponse` (the public ping endpoint). See the [guide](docs/integration-guide.md#14-version-reports-the-api-key-check-and-the-ping-endpoint).
-- `LanguageCodes`: source as bare language (`en`), target with a region (`de-DE`), default regions, per-language overrides, validation. The client applies it to every request.
+- `Languages`: the API's source and target languages, an exact match for CMS codes (`de_CH` → `de-CH`), the integration's language mapping, and which targets offer formal/informal. No default regions and no guessing: an unmapped language is the error `unsupported_language`. The client sends the codes it is given.
 - `HtmlDocument`: the segment packing, if you drive the steps yourself.
 - One error type with stable codes (`authentication_failure`, `invalid_language_pair`, `quota_exceeded`, …) to show users a message in their language.
 - Built in: the `Supertext-Auth-Key` header (pasted prefixes stripped), the exact multipart upload the API accepts, HTTP 429 retries with `Retry-After`, polling with a timeout, and deleting the file afterwards, also after errors.
@@ -35,13 +35,14 @@ All five offer the same things, named the way each language expects:
 Quick look (TypeScript; the others are in their READMEs):
 
 ```ts
-import { SupertextClient } from 'supertext-sdk'
+import { Languages, SupertextClient } from 'supertext-sdk/v1'
 
 const client = new SupertextClient(process.env.SUPERTEXT_API_KEY ?? '')
+const mapping = { de: 'de-CH' } // the plugin's language setting: CMS language → Supertext code
 const german = await client.translateTexts(
   { title: 'Hello & welcome', body: { text: '<p>Our <b>new</b> shop opens on Monday.</p>', html: true } },
-  'de-CH',
-  { sourceLang: 'en', politeness: 'more' },
+  Languages.target('de', mapping), // 'de-CH'; an unmapped 'de' would throw unsupported_language
+  { sourceLang: Languages.source('en-US'), politeness: 'more' },
 )
 ```
 

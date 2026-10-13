@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from supertext import Client, HttpRequest, HttpResponse
+from supertext.v1 import HttpRequest, HttpResponse, SupertextClient
 
 SPEC = Path(__file__).resolve().parents[3] / "spec"
 
@@ -72,9 +72,11 @@ class FakeClock:
         self.now += seconds
 
 
-def make_client(transport: FakeTransport, api_key: str = "secret-key-123", **options: Any) -> tuple[Client, FakeClock]:
+def make_client(
+    transport: FakeTransport, api_key: str = "secret-key-123", **options: Any
+) -> tuple[SupertextClient, FakeClock]:
     clock = FakeClock()
-    client = Client(
+    client = SupertextClient(
         api_key, base_url="https://api.test/v1", transport=transport, sleep=clock.sleep, clock=clock, **options
     )
     return client, clock

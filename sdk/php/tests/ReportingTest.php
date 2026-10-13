@@ -6,14 +6,15 @@ namespace Supertext\Sdk\Tests;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Supertext\Sdk\ApiKeyCheck;
-use Supertext\Sdk\Client;
 use Supertext\Sdk\Http\HttpRequest;
 use Supertext\Sdk\Http\HttpResponse;
 use Supertext\Sdk\Http\TransportException;
-use Supertext\Sdk\InstallationReporter;
-use Supertext\Sdk\ReporterState;
 use Supertext\Sdk\Supertext;
+use Supertext\Sdk\V1\ApiKeyCheck;
+use Supertext\Sdk\V1\Client;
+use Supertext\Sdk\V1\InstallationReporter;
+use Supertext\Sdk\V1\Protocol;
+use Supertext\Sdk\V1\ReporterState;
 
 /**
  * spec/reporting.json and the Commando Center's ping cases (spec/commando/callback-vectors.json).
@@ -125,7 +126,7 @@ final class ReportingTest extends TestCase
     #[DataProvider('fingerprintCases')]
     public function testFingerprint(array $case): void
     {
-        self::assertSame($case['out'], Supertext::apiKeyFingerprint($case['apiKey']));
+        self::assertSame($case['out'], Protocol::apiKeyFingerprint($case['apiKey']));
     }
 
     /** @return array<string, array{array<string, mixed>}> */
@@ -154,7 +155,7 @@ final class ReportingTest extends TestCase
             'checkedAt' => '2026-10-13T08:00:00Z',
             'httpStatus' => $case['httpStatus'],
             'errorCode' => $case['errorCode'],
-            'fingerprint' => Supertext::apiKeyFingerprint($case['apiKey']),
+            'fingerprint' => Protocol::apiKeyFingerprint($case['apiKey']),
         ], $check->toArray());
         self::assertCount($case['requests'] ?? 1, $calls);
         foreach ($transport->requests as $request) {

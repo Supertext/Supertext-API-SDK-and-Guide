@@ -1,85 +1,16 @@
-"""Supertext AI translation API client: translate HTML and texts, with language codes,
-rate-limit retries and HTML packing handled for you.
+"""Supertext SDK. Everything that talks to the API is versioned with it:
 
-    import supertext
+    from supertext import v1          # or: from supertext.v1 import SupertextClient
 
-    client = supertext.Client(api_key)
-    texts = client.translate_texts({"title": "Hello", "body": supertext.Segment("<p>Hi</p>", html=True)}, "de-CH")
+    client = v1.SupertextClient(api_key)
+
+A later API version gets ``supertext.v2`` next to ``v1``. The HTTP layer every version shares is
+:mod:`supertext.transport` (also re-exported from ``supertext.v1``).
 """
 
-from . import language_codes
-from .api_key_check import KEY_CHECK_TIMEOUT, ApiKeyCheck, ApiKeyCheckStatus, api_key_fingerprint
-from .client import (
-    DEFAULT_MAX_CHARACTERS,
-    LIVE_BASE_URL,
-    Client,
-    Politeness,
-    auth_header,
-    plan_batches,
-    retry_delay_ms,
-)
-from .errors import API_KEY_URL, SIGNUP_URL, ErrorCode, SupertextError
-from .html_document import HtmlDocument, Segment
-from .reporting import (
-    DEFAULT_REPORT_URL,
-    FAILURE_BACKOFF,
-    REPORT_TIMEOUT,
-    InstallationReporter,
-    NameVersion,
-    PingResponse,
-    ReporterResult,
-    ReporterState,
-    ReportEvent,
-    StateInput,
-    ping_response,
-    reporter_state,
-    reports_enabled,
-)
-from .transport import HttpRequest, HttpResponse, Transport, UrllibTransport
+from . import v1
 from .version import SDK_VERSION
-
-LanguageCodes = language_codes
-"""Alias matching the other Supertext SDKs: ``LanguageCodes.target("de")``."""
 
 __version__ = SDK_VERSION
 
-__all__ = [
-    "API_KEY_URL",
-    "DEFAULT_MAX_CHARACTERS",
-    "DEFAULT_REPORT_URL",
-    "FAILURE_BACKOFF",
-    "KEY_CHECK_TIMEOUT",
-    "LIVE_BASE_URL",
-    "REPORT_TIMEOUT",
-    "SDK_VERSION",
-    "SIGNUP_URL",
-    "ApiKeyCheck",
-    "ApiKeyCheckStatus",
-    "Client",
-    "ErrorCode",
-    "HtmlDocument",
-    "HttpRequest",
-    "HttpResponse",
-    "InstallationReporter",
-    "LanguageCodes",
-    "NameVersion",
-    "PingResponse",
-    "Politeness",
-    "ReportEvent",
-    "ReporterResult",
-    "ReporterState",
-    "Segment",
-    "StateInput",
-    "SupertextError",
-    "Transport",
-    "UrllibTransport",
-    "__version__",
-    "api_key_fingerprint",
-    "auth_header",
-    "language_codes",
-    "ping_response",
-    "plan_batches",
-    "reporter_state",
-    "reports_enabled",
-    "retry_delay_ms",
-]
+__all__ = ["SDK_VERSION", "__version__", "v1"]

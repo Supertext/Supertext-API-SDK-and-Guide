@@ -14,7 +14,7 @@ import {
   reportsEnabled,
   type FetchLike,
   type ReporterState,
-} from '../src/index.js'
+} from '../src/v1/index.js'
 
 const spec = (name: string): any => JSON.parse(readFileSync(new URL(`../../../spec/${name}`, import.meta.url), 'utf8'))
 const s = spec('reporting.json')

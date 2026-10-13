@@ -32,8 +32,8 @@ env:
     sdk/typescript/src/version.ts
     sdk/php/src/Supertext.php
     sdk/python/src/supertext/version.py
-    sdk/dotnet/src/Supertext.Sdk/SupertextClient.Version.cs
-    sdk/java/src/main/java/com/supertext/sdk/SupertextClient.java
+    sdk/dotnet/src/Supertext.Sdk/SdkVersion.cs
+    sdk/java/src/main/java/com/supertext/sdk/SdkInfo.java
 
 jobs:
   version:

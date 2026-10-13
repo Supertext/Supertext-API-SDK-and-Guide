@@ -6,8 +6,11 @@
  * It behaves like the live API where integrations went wrong before:
  *   - Authorization must be exactly `Supertext-Auth-Key <key>` (no prefix: 400,
  *     anything else: 401). The key `invalid` is rejected with 401.
- *   - target_lang must carry a region (`de-DE`), source_lang must be bare
- *     (`en`): otherwise 400 INVALID_LANGUAGE_PAIR.
+ *   - target_lang and source_lang must be codes of spec/languages.json (the live
+ *     list: `de-CH`, `es`, `zh-Hans`; sources bare): otherwise 404
+ *     INVALID_LANGUAGE_PAIR, as the live API answers. Politeness on a target
+ *     without it (`en-US`, `rm`): 400 FEATURE_ERROR.
+ *   - GET /features lists every pair with its features, like the live API.
  *   - The file part's Content-Type must be exactly `text/html`: otherwise 415.
  *   - Documents over 1,000,000 characters: 413.
  *   - The first status poll answers `translating`, the next `done`.
@@ -34,8 +37,16 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const MAX_CHARACTERS = 1_000_000;
-const TARGET = /^[a-z]{2,3}(-[A-Z][a-z]{3})?-([A-Z]{2}|\d{3})$|^[a-z]{2,3}-[A-Z][a-z]{3}$/;
-const SOURCE = /^[a-z]{2,3}$/;
+const LANGUAGES = JSON.parse(readFileSync(fileURLToPath(new URL('../spec/languages.json', import.meta.url)), 'utf8'));
+const SOURCES = new Set(LANGUAGES.sources.map((l) => l.code));
+const TARGETS = new Map(LANGUAGES.targets.map((l) => [l.code, l]));
+const FEATURES = {
+  supported_features: LANGUAGES.sources.flatMap((s) =>
+    LANGUAGES.targets
+      .filter((t) => t.code.split('-')[0] !== s.code)
+      .map((t) => ({ source_lang: s.code, target_lang: t.code, features: t.politeness ? ['supports_politeness', 'supports_glossary'] : ['supports_glossary'] })),
+  ),
+};
 
 const norm = (s) =>
   s.replace(/&apos;|&#39;/g, "'").replace(/&nbsp;/g, ' ').replace(/<br\s*\/?>/g, '<br>').replace(/\s+/g, ' ').trim();
@@ -92,7 +103,7 @@ export function createStandIn(options = {}) {
       return reject(401, { error_code: 'UNAUTHORIZED' });
     }
 
-    if (req.method === 'GET' && path === '/features') return send(200, { features: ['translate_ai_file'] });
+    if (req.method === 'GET' && path === '/features') return send(200, FEATURES);
 
     if (req.method === 'POST' && path === '/translate/ai/file') {
       const chunks = [];
@@ -114,11 +125,14 @@ export function createStandIn(options = {}) {
       const target = String(form.get('target_lang') ?? '');
       const source = form.has('source_lang') ? String(form.get('source_lang')) : null;
       const politeness = form.has('politeness') ? String(form.get('politeness')) : null;
-      if (!TARGET.test(target) || (source !== null && !SOURCE.test(source))) {
-        return reject(400, { error_code: 'INVALID_LANGUAGE_PAIR', source_lang: source, target_lang: target });
+      if (!TARGETS.has(target) || (source !== null && !SOURCES.has(source))) {
+        return reject(404, { error_code: 'INVALID_LANGUAGE_PAIR', message: 'This language combination is not supported.', source_lang: source, target_lang: target, politeness });
       }
-      if (politeness !== null && politeness !== 'more' && politeness !== 'less') {
+      if (politeness !== null && politeness !== 'more' && politeness !== 'less' && politeness !== 'default') {
         return reject(400, { error_code: 'INVALID_POLITENESS' });
+      }
+      if ((politeness === 'more' || politeness === 'less') && !TARGETS.get(target).politeness) {
+        return reject(400, { error_code: 'FEATURE_ERROR', feature: 'politeness', message: "The feature 'politeness' is not supported for the requested configuration.", source_lang: source, target_lang: target });
       }
       const html = await file.text();
       if (html.length > MAX_CHARACTERS) return reject(413, { error_code: 'FILE_TOO_LARGE' });

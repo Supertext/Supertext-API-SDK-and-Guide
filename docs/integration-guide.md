@@ -49,7 +49,7 @@ DELETE translate/ai/file/{id}               clean up (always, even after errors)
 
 Supertext keeps your markup and attributes and translates the text. To translate many fields at once (title, body, meta description, …), pack them into one document, each in its own `<div data-st-id="N">`, and read them back by id ([section 7](#7-the-html-document-segments)).
 
-With an SDK this is one call:
+With an SDK this is one call. The SDKs keep everything that talks to the API in a `v1` namespace (TypeScript `supertext-sdk/v1`, PHP `Supertext\Sdk\V1`, Python `supertext.v1`, .NET `Supertext.Sdk.V1`, Java `com.supertext.sdk.v1`), so a later API version can be used next to it:
 
 ```ts
 // TypeScript
@@ -114,7 +114,7 @@ Test vectors: [`spec/auth-header.json`](../spec/auth-header.json).
 
 | Field | Value |
 | --- | --- |
-| `target_lang` | Regional code: `de-CH`, `fr-FR`, `en-US` ([section 6](#6-language-codes)). |
+| `target_lang` | A target code exactly as `GET features` lists it: `de-CH`, `en-US`, `es`, `zh-Hans` ([section 6](#6-language-codes)). |
 | `source_lang` | Bare language: `en`, `de`. Leave the field out to let Supertext detect the language. |
 | `politeness` | `more` (formal: Sie, vous, Lei) or `less` (informal: du, tu). Leave it out for Supertext's default. |
 | `file` | The HTML document. Filename `content.html`, part Content-Type **exactly** `text/html`. |
@@ -147,31 +147,28 @@ Poll right away, then every 2 seconds. Give up after a few minutes (the SDKs: 18
 
 ## 6. Language codes
 
-The rule the live API enforces:
+Supertext accepts exactly the codes `GET features` lists (cost-free; it returns every source/target pair with its features). As of October 2026 ([`spec/languages.json`](../spec/languages.json), the SDKs' `Languages`):
 
-- **Source = bare language**: `en`, `de`, `fr`. A regional source (`en-US`, `de-CH`) is rejected.
-- **Target = regional code**: `de-DE`, `de-CH`, `fr-FR`, `en-US`, `pt-BR`. A bare target (`de`) is rejected.
+- **28 sources, all bare:** bg, cs, da, de, el, en, es, fi, fr, gsw, hr, hu, it, ja, ko, nb, nl, pl, pt, rm, ru, sk, sl, sq, sr, sv, tr, zh.
+- **37 targets, each in one exact form:**
+  - regional for German, English, French, Italian and Portuguese: `de-AT`, `de-CH`, `de-DE`, `en-GB`, `en-US`, `fr-CH`, `fr-FR`, `it-CH`, `it-IT`, `pt-BR`, `pt-PT`;
+  - a script for Chinese and Serbian: `zh-Hans`, `zh-Hant`, `sr-Cyrl`, `sr-Latn`;
+  - a dialect for Swiss German: `gsw-u-sd-chzh` (Zurich), `gsw-u-sd-chbe` (Bern);
+  - **bare for all others:** `bg`, `cs`, `da`, `el`, `es`, `fi`, `hr`, `hu`, `ja`, `ko`, `nb`, `nl`, `pl`, `rm`, `ru`, `sk`, `sl`, `sq`, `sv`, `tr`.
+- No pair within one language (`en` → `en-GB` isn't offered).
+- **Politeness** (formal/informal) for every target except `en-GB`, `en-US`, `gsw-u-sd-*`, `rm`, `sq`, `sr-Cyrl`, `sr-Latn`.
 
-Both mistakes give HTTP 400 `INVALID_LANGUAGE_PAIR`. This was the most common bug across the plugins, because systems name their languages differently: Shopify uses `de`, `pt-BR`; Magento `de_CH`; Directus `en-US`; TYPO3 a site language with an ISO code; Wagtail `de`.
+Anything else is HTTP 404 `INVALID_LANGUAGE_PAIR` (bare `de`, `es-ES`, `sl-SI`, `zh-CN`: the default regions earlier SDK versions added were wrong for most languages). Politeness `more`/`less` for a target without it is HTTP 400 `FEATURE_ERROR` (`feature: politeness`).
 
-How to turn a system's locale into Supertext codes (the SDKs' `LanguageCodes`, vectors in [`spec/language-codes.json`](../spec/language-codes.json)):
+**No guessing.** Systems name their languages differently (Shopify `de`, `pt-BR`; Magento `de_CH`; Directus `en-US`; WordPress `de_DE_formal`), and a guessed Supertext code is either rejected or, worse, the wrong variant (German German for a Swiss site). So every integration has a **language mapping**: a setting per CMS language with the Supertext code to use, offered as a list of the targets (show the name and the code).
 
-1. **Normalize**: trim, `_` → `-`, language lower-case, 4-letter script title-case, 2-letter region upper-case: `de_ch` → `de-CH`, `zh_hant_tw` → `zh-Hant-TW`, `es-419` stays. Anything after the script or region is dropped: variants such as WordPress's `de_DE_formal` → `de-DE`, extensions and private use (`en-US-x-twain` → `en-US`, `zh-Hant-u-nu-hanidec` → `zh-Hant`). Formal or informal address is chosen with `politeness`, not with the code (see [4. Uploading a document](#4-uploading-a-document)). A code whose second part is neither a script nor a region (`de-CHE`, `de-formal`) is left as it is and isn't valid.
-2. **Source**: the language part only: `en-GB` → `en`.
-3. **Target**: keep a region if there is one. Add the default region to a bare code:
+How the SDKs resolve a CMS language (`Languages.target(code, mapping)` / `Languages.source(code, mapping)`):
 
-   | | | | | | | |
-   | --- | --- | --- | --- | --- | --- | --- |
-   | ar → ar-SA | bg → bg-BG | cs → cs-CZ | da → da-DK | de → de-DE | el → el-GR | en → en-US |
-   | es → es-ES | et → et-EE | fi → fi-FI | fr → fr-FR | hr → hr-HR | hu → hu-HU | it → it-IT |
-   | ja → ja-JP | ko → ko-KR | lt → lt-LT | lv → lv-LV | nb → nb-NO | nl → nl-NL | pl → pl-PL |
-   | pt → pt-PT | ro → ro-RO | ru → ru-RU | sk → sk-SK | sl → sl-SI | sr → sr-RS | sv → sv-SE |
-   | th → th-TH | tr → tr-TR | uk → uk-UA | vi → vi-VN | zh → zh-CN | | |
+1. **The mapping**, if it has a non-blank entry for the code (keys compared ignoring case and `_`/`-`). Its value is sent as it is, so a language Supertext adds later works before the SDK lists it.
+2. **An exact match**: a CMS code that equals a Supertext code apart from case and `_`/`-` (`de_CH` → `de-CH`, `ES` → `es`). Sources also match by their first part (`en-US` as a source is `en`; sources have no regions).
+3. **Otherwise the error `unsupported_language`**, and nothing is sent. Tell the editor which language isn't mapped and the administrator where to map it.
 
-   Unknown bare codes are sent unchanged; Supertext's error then names them.
-4. **Override**: let administrators set the Supertext code per language when the default region is wrong for them (a Swiss shop with a `de` locale wants `de-CH`, a `no` locale is `nb-NO`). The override wins for the target; the source uses the override's language. Validate the field (`LanguageCodes.isValid`) and show the resulting code next to each language so nobody has to guess.
-
-Translating within one language is allowed (source `en`, target `en-GB`): don't block it.
+The client sends the codes it is given unchanged (trimmed). Pre-fill the mapping screen with the exact matches, mark the languages without one, and hide the formal/informal choice for targets that don't support it (`Languages.supportsPoliteness`). For an always-current list, call `getFeatures()` instead of the built-in one.
 
 ## 7. The HTML document: segments
 
@@ -236,7 +233,9 @@ The SDKs throw one error type with a stable `code`, an English `message`, and wh
 | --- | --- | --- |
 | `missing_api_key` | No key configured | Where to enter the key, plus the account and API key links |
 | `authentication_failure` | HTTP 401/403 | The key was rejected: check or regenerate it (links) |
-| `invalid_language_pair` | HTTP 400 (404 for an unknown language) `INVALID_LANGUAGE_PAIR` | Supertext doesn't translate from X into Y: check the Supertext code for this language (with a region, e.g. `de-CH`) |
+| `invalid_language_pair` | HTTP 404 (or 400) `INVALID_LANGUAGE_PAIR` | Supertext doesn't translate from X into Y: check the language mapping (the code must be one of `GET features`, e.g. `de-CH`, `es`) |
+| `unsupported_language` | Nothing sent: the language has no mapping and no exact match | Language X has no Supertext language yet: map it in the plugin's language settings |
+| `unsupported_feature` | HTTP 400 `FEATURE_ERROR` (`feature`) | Formal/informal address isn't available for this language: switch it to *Default* |
 | `quota_exceeded` | Status `limit_exceeded` | The Supertext translation limit is used up: upgrade the subscription |
 | `too_many_requests` | HTTP 429 after retries | Too many requests right now: try again in a minute |
 | `payload_too_large` | HTTP 413 | Too much content at once: translate less (or lower the batch size) |
@@ -312,7 +311,7 @@ Reports are fire-and-forget: 3 s timeout, no exception ever reaches your code, a
 ## 15. Checklist
 
 - [ ] `Authorization: Supertext-Auth-Key <key>`, pasted prefix stripped, blank key = no request
-- [ ] Source bare (`en`), target regional (`de-DE`), default regions for bare locales, per-language override with validation
+- [ ] Language mapping per CMS language (list of the Supertext targets), exact matches pre-filled, no guessed regions; `unsupported_language` shown with where to map it; formal/informal only where the target supports it
 - [ ] File part Content-Type exactly `text/html`, `<meta charset="utf-8">` in the document
 - [ ] All fields of an item in one document per language; documents under 1,000,000 characters
 - [ ] One `data-st-id` per paragraph/field, formatting as inline tags, structure kept when writing back

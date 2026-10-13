@@ -1,4 +1,5 @@
 using System.Net;
+using Supertext.Sdk.V1;
 
 namespace Supertext.Sdk.Tests;
 
@@ -25,7 +26,7 @@ public class ClientTests
     [Fact]
     public async Task UploadSendsTheExactMultipartFieldsInOrder()
     {
-        var fileId = await Client().SubmitAsync("<p>Grüezi</p>", "de_ch", "en-US", Politeness.More);
+        var fileId = await Client().SubmitAsync("<p>Grüezi</p>", "de-CH", "en", Politeness.More);
 
         Assert.Equal("f/1", fileId);
         var upload = Assert.Single(api.Requests);
@@ -44,11 +45,59 @@ public class ClientTests
     [Fact]
     public async Task UploadLeavesOutEmptySourceAndDefaultPoliteness()
     {
-        await Client().SubmitAsync("<p>x</p>", "fr");
+        await Client().SubmitAsync("<p>x</p>", "fr-CH");
+        await Client().SubmitAsync("<p>x</p>", "pt-BR", "  ");
 
-        var parts = Assert.Single(api.Requests).Parts();
-        Assert.Equal(["target_lang", "file"], parts.Select(p => p.Headers["Content-Disposition"].Split('"')[1]));
-        Assert.Equal("fr-FR", parts[0].Content);
+        Assert.All(api.Requests, r => Assert.Equal(["target_lang", "file"], r.Parts().Select(p => p.Headers["Content-Disposition"].Split('"')[1])));
+        Assert.Equal(["fr-CH", "pt-BR"], api.Requests.Select(r => r.Parts()[0].Content));
+    }
+
+    [Fact]
+    public async Task UploadSendsTheLanguageCodesAsGivenOnlyTrimmed()
+    {
+        await Client().SubmitAsync("<p>x</p>", " de ", " en-US ");
+
+        Assert.Equal(["de", "en-US"], Assert.Single(api.Requests).Parts().Take(2).Select(p => p.Content));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task EmptyTargetIsRefusedWithoutARequest(string target)
+    {
+        var e = await Assert.ThrowsAsync<SupertextException>(() => Client().TranslateHtmlAsync("<p>x</p>", target));
+
+        Assert.Equal(SupertextErrorCodes.UnsupportedLanguage, e.Code);
+        Assert.Empty(api.Requests);
+    }
+
+    [Fact]
+    public async Task GetFeaturesListsTheLanguagePairsAndSkipsMalformedEntries()
+    {
+        api.Respond = _ => FakeApi.Json(200, """
+            {"supported_features":[{"source_lang":"en","target_lang":"de-CH","features":["supports_politeness",3]},
+            {"source_lang":"en"},"x",{"source_lang":"de","target_lang":"en-US"}]}
+            """);
+
+        var features = await Client().GetFeaturesAsync();
+
+        Assert.Equal(2, features.Count);
+        Assert.Equal(("en", "de-CH"), (features[0].SourceLang, features[0].TargetLang));
+        Assert.Equal(["supports_politeness"], features[0].Features);
+        Assert.Equal(("de", "en-US"), (features[1].SourceLang, features[1].TargetLang));
+        Assert.Empty(features[1].Features);
+        Assert.Equal("https://api.example.test/v1/features", Assert.Single(api.Requests).Uri.ToString());
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("""{"supported_features":{}}""")]
+    [InlineData("not json")]
+    public async Task GetFeaturesWithoutAListIsEmpty(string body)
+    {
+        api.Respond = _ => FakeApi.Json(200, body);
+
+        Assert.Empty(await Client().GetFeaturesAsync());
     }
 
     [Fact]
@@ -82,7 +131,7 @@ public class ClientTests
     {
         var client = Client(key: "  ");
 
-        var e = await Assert.ThrowsAsync<SupertextException>(() => client.TranslateHtmlAsync("<p>x</p>", "de"));
+        var e = await Assert.ThrowsAsync<SupertextException>(() => client.TranslateHtmlAsync("<p>x</p>", "de-CH"));
 
         Assert.Equal(SupertextErrorCodes.MissingApiKey, e.Code);
         Assert.Contains("https://www.supertext.com/en/integrations/api", e.Message);
@@ -95,7 +144,7 @@ public class ClientTests
         var uploads = 0;
         api.Respond = r => r.Method == HttpMethod.Post && uploads++ < 2 ? FakeApi.Json(429, """{"error_code":"RATE_LIMIT_EXCEEDED"}""", retryAfter: uploads == 1 ? "3" : "1.5") : null;
 
-        Assert.Equal("f/1", await Client().SubmitAsync("<p>x</p>", "de"));
+        Assert.Equal("f/1", await Client().SubmitAsync("<p>x</p>", "de-CH"));
 
         Assert.Equal(3, api.Requests.Count);
         Assert.Equal([TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1.5)], time.Sleeps);
@@ -166,7 +215,7 @@ public class ClientTests
     {
         api.Statuses.Enqueue("translating");
 
-        var html = await Client().TranslateHtmlAsync("<div data-st-id=\"0\">Hello</div>", "de");
+        var html = await Client().TranslateHtmlAsync("<div data-st-id=\"0\">Hello</div>", "de-CH");
 
         Assert.Equal("<div data-st-id=\"0\">[T] Hello</div>", html);
         Assert.Equal(["POST /v1/translate/ai/file", "GET /v1/translate/ai/file/f%2F1/status", "GET /v1/translate/ai/file/f%2F1/status",
@@ -182,7 +231,7 @@ public class ClientTests
     {
         api.Statuses.Enqueue(status);
 
-        var e = await Assert.ThrowsAsync<SupertextException>(() => Client().TranslateHtmlAsync("<p>x</p>", "de"));
+        var e = await Assert.ThrowsAsync<SupertextException>(() => Client().TranslateHtmlAsync("<p>x</p>", "de-CH"));
 
         Assert.Equal(code, e.Code);
         Assert.Single(api.Of(HttpMethod.Delete));
@@ -194,7 +243,7 @@ public class ClientTests
         api.Respond = r => r.Method == HttpMethod.Get ? throw new HttpRequestException("Connection refused")
             : r.Method == HttpMethod.Delete ? FakeApi.Json(500, "{}") : null;
 
-        var e = await Assert.ThrowsAsync<SupertextException>(() => Client().TranslateHtmlAsync("<p>x</p>", "de"));
+        var e = await Assert.ThrowsAsync<SupertextException>(() => Client().TranslateHtmlAsync("<p>x</p>", "de-CH"));
 
         Assert.Equal(SupertextErrorCodes.TransportError, e.Code);
         Assert.Equal("Connection refused", e.Detail);
@@ -220,7 +269,7 @@ public class ClientTests
     {
         api.Translate = _ => " \n ";
 
-        var e = await Assert.ThrowsAsync<SupertextException>(() => Client().TranslateHtmlAsync("<p>x</p>", "de"));
+        var e = await Assert.ThrowsAsync<SupertextException>(() => Client().TranslateHtmlAsync("<p>x</p>", "de-CH"));
 
         Assert.Equal(SupertextErrorCodes.IncompleteResponse, e.Code);
         Assert.Single(api.Of(HttpMethod.Delete));
@@ -231,7 +280,7 @@ public class ClientTests
     {
         api.Respond = r => r.Method == HttpMethod.Post ? FakeApi.Json(200, """{"file_id":""}""") : null;
 
-        var e = await Assert.ThrowsAsync<SupertextException>(() => Client().TranslateHtmlAsync("<p>x</p>", "de"));
+        var e = await Assert.ThrowsAsync<SupertextException>(() => Client().TranslateHtmlAsync("<p>x</p>", "de-CH"));
 
         Assert.Equal(SupertextErrorCodes.NoFileId, e.Code);
         Assert.Empty(api.Of(HttpMethod.Delete));
@@ -290,7 +339,7 @@ public class ClientTests
             ["blank"] = "  ",
             ["body"] = new Segment("<p>A <b>new</b> shop</p>", Html: true),
             ["lines"] = "Line 1\nLine 2",
-        }, "de", "en-GB", Politeness.More);
+        }, "de-CH", "en", Politeness.More);
 
         Assert.Equal(["title", "blank", "body", "lines"], result.Keys);
         Assert.Equal(["Hallo & willkommen", "  ", "<p>A <b>neu</b> shop</p>", "Zeile 1\nZeile 2"], result.Values);
@@ -298,14 +347,14 @@ public class ClientTests
             "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head><body>\n<div data-st-id=\"0\">Hello &amp; welcome</div>\n"
             + "<div data-st-id=\"1\"><p>A <b>new</b> shop</p></div>\n<div data-st-id=\"2\">Line 1<br>Line 2</div>\n</body></html>\n",
             api.LastUpload);
-        Assert.Equal(["de-DE", "en", "more"], api.Requests[0].Parts().Take(3).Select(p => p.Content));
+        Assert.Equal(["de-CH", "en", "more"], api.Requests[0].Parts().Take(3).Select(p => p.Content));
     }
 
     [Fact]
     public async Task TranslateTextsSendsDocumentsOneAfterTheOther()
     {
         var result = await Client().TranslateTextsAsync(
-            [new("a", "12345"), new("b", "12345"), new("c", "1")], "de", maxCharacters: 10);
+            [new("a", "12345"), new("b", "12345"), new("c", "1")], "de-CH", maxCharacters: 10);
 
         Assert.Equal(2, api.Of(HttpMethod.Post).Count());
         Assert.Equal(2, api.Of(HttpMethod.Delete).Count());
@@ -318,7 +367,7 @@ public class ClientTests
         api.Translate = _ => "<div data-st-id=\"1\">zwei</div>";
 
         var e = await Assert.ThrowsAsync<SupertextException>(() =>
-            Client().TranslateTextsAsync([new("a", "eins"), new("b", "zwei"), new("c", "drei")], "de"));
+            Client().TranslateTextsAsync([new("a", "eins"), new("b", "zwei"), new("c", "drei")], "de-CH"));
 
         Assert.Equal(SupertextErrorCodes.IncompleteResponse, e.Code);
         Assert.Equal("missing: a, c", e.Detail);
@@ -328,7 +377,7 @@ public class ClientTests
     [Fact]
     public async Task NothingToTranslateSendsNothing()
     {
-        var result = await Client(key: "").TranslateTextsAsync([new("a", ""), new("b", new Segment(" \t\r\n", true))], "de");
+        var result = await Client(key: "").TranslateTextsAsync([new("a", ""), new("b", new Segment(" \t\r\n", true))], "de-CH");
 
         Assert.Empty(api.Requests);
         Assert.Equal(["", " \t\r\n"], result.Values);
@@ -337,7 +386,7 @@ public class ClientTests
     [Fact]
     public async Task DuplicateKeysAreRejected()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => Client().TranslateTextsAsync([new("a", "x"), new("a", "y")], "de"));
+        await Assert.ThrowsAsync<ArgumentException>(() => Client().TranslateTextsAsync([new("a", "x"), new("a", "y")], "de-CH"));
         Assert.Empty(api.Requests);
     }
 

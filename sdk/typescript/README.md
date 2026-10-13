@@ -1,6 +1,6 @@
 # supertext-sdk (TypeScript)
 
-Client for the Supertext AI translation API: translate HTML and texts, with language codes, rate-limit retries and HTML packing handled for you.
+Client for the Supertext AI translation API (v1): translate HTML and texts, with rate-limit retries and HTML packing handled for you, and the API's language list for your language mapping.
 
 - Node 18+, Deno and Bun; ESM with type declarations; **no runtime dependencies** (uses the global `fetch`).
 - Everything Supertext's CMS, PIM and shop plugins learned against the live API is built in: the auth header, language codes, the exact multipart upload, HTTP 429 retries, polling, cleanup, and packing many texts into one document.
@@ -17,10 +17,12 @@ You need an API key. No Supertext account yet? Create one at https://www.superte
 
 ## Quick start
 
+Everything that talks to the API is in the `v1` namespace, so a later API version can sit next to it: `import { SupertextClient } from 'supertext-sdk/v1'`, or `import { v1 } from 'supertext-sdk'` and `new v1.SupertextClient(…)`. `SDK_VERSION` is exported from both.
+
 Translate texts and HTML fragments, keyed by your own ids:
 
 ```ts
-import { SupertextClient } from 'supertext-sdk'
+import { SupertextClient } from 'supertext-sdk/v1'
 
 const client = new SupertextClient(process.env.SUPERTEXT_API_KEY ?? '', {
   userAgent: 'My-CMS-Supertext-Plugin/1.0.0', // appended to the User-Agent
@@ -55,7 +57,7 @@ Lower-level steps, if you need them: `submit()`, `getStatus()`, `waitUntilDone()
 Supertext's plugins check the API key automatically and report their versions to the Supertext Commando Center ([guide, section 14](../../docs/integration-guide.md#14-version-reports-the-api-key-check-and-the-ping-endpoint)). No Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (supertext.com → Integrations → API; requires the Admin role).
 
 ```ts
-import { InstallationReporter, pingResponse, reporterState, reportsEnabled } from 'supertext-sdk'
+import { InstallationReporter, pingResponse, reporterState, reportsEnabled } from 'supertext-sdk/v1'
 
 const reporter = new InstallationReporter({
   enabled: reportsEnabled(settings.versionReports),        // setting (default on) + SUPERTEXT_VERSION_REPORTS
@@ -77,39 +79,42 @@ response.status(ping.status).set(ping.headers).send(ping.body)
 
 `client.checkApiKey()` runs the key check on its own (`GET features`, 10 s; never throws). Reports never throw either, time out after 3 s, and after a failure nothing is sent for an hour. They contain the site URL, the plugin, system, runtime and SDK versions, whether a key is set, the check result and the ping URL; never content, the key or personal data. `SUPERTEXT_REPORT_URL` sends them elsewhere (tests).
 
-## Language codes
+## Languages
 
-Supertext wants the **source as a bare language** (`en`) and the **target with a region** (`de-DE`, `en-US`); anything else is HTTP 400 `INVALID_LANGUAGE_PAIR`. The client fixes this for you: `de` is sent as `de-DE`, `en-US` as source as `en`, `fr_ch` as `fr-CH`.
-
-If your users need a different region (Swiss German instead of German German, say), let them set it per language and apply it yourself:
+The client sends the language codes it is given (trimmed). Supertext accepts exactly the codes `GET features` lists: bare sources (`en`), and targets in one exact form each: `de-CH`, `en-US`, `pt-BR`, but bare `es`, `nl`, `sl`, and `zh-Hans`, `sr-Latn`, `gsw-u-sd-chzh` ([guide, section 6](../../docs/integration-guide.md#6-language-codes)). There are no default regions: let administrators map each CMS language to a Supertext code, and resolve it with `Languages`:
 
 ```ts
-import { LanguageCodes } from 'supertext-sdk'
+import { Languages } from 'supertext-sdk/v1'
 
-const overrides = { de: 'de-CH', no: 'nb-NO' } // CMS locale → Supertext code
-await client.translateTexts(texts, LanguageCodes.target(cmsLocale, overrides))
+const mapping = { de: 'de-CH', no: 'nb' } // the plugin's language setting: CMS language → Supertext code
+await client.translateTexts(texts, Languages.target(cmsLocale, mapping), { sourceLang: Languages.source(sourceLocale, mapping) })
 
-LanguageCodes.normalize('zh_hant_tw') // 'zh-Hant-TW'
-LanguageCodes.normalize('de_DE_formal') // 'de-DE' (variants dropped; formal address: politeness)
-LanguageCodes.source('en-GB')         // 'en'
-LanguageCodes.target('pt')            // 'pt-PT'
-LanguageCodes.isValid('german')       // false (for validating a settings field)
-LanguageCodes.DEFAULT_REGIONS         // { de: 'de-DE', en: 'en-US', … }
+Languages.target('de', mapping) // 'de-CH' (mapping)
+Languages.target('de_ch')       // 'de-CH' (exact match apart from case and _/-)
+Languages.target('es')          // 'es'
+Languages.target('de')          // throws SupertextError unsupported_language: map it
+Languages.source('en-US')       // 'en' (sources are bare)
+Languages.matchTarget('zh-CN')  // null (Supertext has zh-Hans / zh-Hant)
+Languages.supportsPoliteness('en-US') // false: hide formal/informal for it
+Languages.TARGETS               // [{ code: 'bg', name: 'Bulgarian', politeness: true }, …] for a select box
+await client.getFeatures()      // the live list: [{ sourceLang, targetLang, features }]
 ```
 
 ## Politeness
 
-`politeness: 'more'` asks for formal address (Sie, vous, Lei), `'less'` for informal (du, tu). `'default'` (or leaving it out) lets Supertext decide and sends nothing.
+`politeness: 'more'` asks for formal address (Sie, vous, Lei), `'less'` for informal (du, tu). `'default'` (or leaving it out) lets Supertext decide and sends nothing. Not every target offers it (`Languages.supportsPoliteness`); otherwise the API answers `unsupported_feature`.
 
 ## Errors
 
-Every failure is a `SupertextError` with a stable `code` (also as constants: `ErrorCode.QuotaExceeded`), an English `message`, and where known `status` (HTTP), `detail` (the API's own text, at most 200 characters), `apiErrorCode` (e.g. `INVALID_LANGUAGE_PAIR`), `sourceLang`/`targetLang`. The API key never appears in any of them. Translate the code for your users:
+Every failure is a `SupertextError` with a stable `code` (also as constants: `ErrorCode.QuotaExceeded`), an English `message`, and where known `status` (HTTP), `detail` (the API's own text, at most 200 characters), `apiErrorCode` (e.g. `INVALID_LANGUAGE_PAIR`), `sourceLang`/`targetLang`, `feature`. The API key never appears in any of them. Translate the code for your users:
 
 | Code | What to tell the user |
 | --- | --- |
 | `missing_api_key` | No API key is configured (nothing was sent). Show where to enter it and the account/API key links above. |
 | `authentication_failure` | The API key was rejected (HTTP 401/403). Check or regenerate it (links above). |
-| `invalid_language_pair` | Supertext doesn't support this language pair; check the language settings. |
+| `invalid_language_pair` | Supertext doesn't support this language pair (HTTP 404); check the language mapping. |
+| `unsupported_language` | The language has no Supertext code (no mapping, no exact match; nothing was sent). Map it in the language settings. |
+| `unsupported_feature` | The pair exists, but not with this option (`feature`, e.g. `politeness` for `en-US`). Use the default tone. |
 | `not_found` | The translation file is gone (expired or deleted). Try again. |
 | `payload_too_large` | The content is too large; translate less at once (or lower `maxCharacters`). |
 | `too_many_requests` | Too many requests right now (after 4 retries). Try again in a minute. |
@@ -124,7 +129,7 @@ Every failure is a `SupertextError` with a stable `code` (also as constants: `Er
 | `incomplete_response` | The translation came back empty or incomplete (`detail` lists missing keys). Try again. |
 
 ```ts
-import { SupertextError } from 'supertext-sdk'
+import { SupertextError } from 'supertext-sdk/v1'
 
 try {
   await client.translateTexts(texts, target)

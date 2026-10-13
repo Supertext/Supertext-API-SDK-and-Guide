@@ -6,11 +6,11 @@ namespace Supertext\Sdk\Tests;
 
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
-use Supertext\Sdk\Client;
 use Supertext\Sdk\Http\CurlTransport;
 use Supertext\Sdk\Http\HttpRequest;
 use Supertext\Sdk\Http\HttpResponse;
 use Supertext\Sdk\Http\HttpTransport;
+use Supertext\Sdk\V1\Client;
 
 /**
  * ext-curl is optional: only the built-in CurlTransport needs it. CI also runs this suite without curl.

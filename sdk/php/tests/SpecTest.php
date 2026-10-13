@@ -6,13 +6,13 @@ namespace Supertext\Sdk\Tests;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Supertext\Sdk\Client;
-use Supertext\Sdk\HtmlDocument;
 use Supertext\Sdk\Http\HttpResponse;
-use Supertext\Sdk\LanguageCodes;
-use Supertext\Sdk\Segment;
-use Supertext\Sdk\Supertext;
-use Supertext\Sdk\SupertextException;
+use Supertext\Sdk\V1\Client;
+use Supertext\Sdk\V1\HtmlDocument;
+use Supertext\Sdk\V1\Languages;
+use Supertext\Sdk\V1\Protocol;
+use Supertext\Sdk\V1\Segment;
+use Supertext\Sdk\V1\SupertextException;
 
 /**
  * The shared test vectors in spec/ (the same files every Supertext SDK passes).
@@ -46,21 +46,23 @@ final class SpecTest extends TestCase
         return $out;
     }
 
-    // ---- language-codes.json ----
+    // ---- languages.json ----
 
-    public function testDefaultRegions(): void
+    public function testLanguageLists(): void
     {
-        self::assertSame(self::spec('language-codes.json')['defaultRegions'], LanguageCodes::DEFAULT_REGIONS);
+        $spec = self::spec('languages.json');
+        self::assertSame($spec['sources'], Languages::SOURCES);
+        self::assertSame($spec['targets'], Languages::TARGETS);
     }
 
     /** @return array<string, array{array<string, mixed>, string}> */
     public static function languageCases(): array
     {
-        $spec = self::spec('language-codes.json');
+        $spec = self::spec('languages.json');
         $out = [];
-        foreach (['normalize', 'source', 'target', 'isValid'] as $function) {
+        foreach (['matchTarget', 'matchSource', 'resolveTarget', 'resolveSource', 'supportsPoliteness'] as $function) {
             foreach ($spec[$function] as $i => $case) {
-                $out[$function . ' #' . $i . ' ' . json_encode($case)] = [$case, $function];
+                $out[$function . ' #' . $i . ' ' . json_encode($case, JSON_UNESCAPED_UNICODE)] = [$case, $function];
             }
         }
 
@@ -69,17 +71,47 @@ final class SpecTest extends TestCase
 
     /** @param array<string, mixed> $case */
     #[DataProvider('languageCases')]
-    public function testLanguageCodes(array $case, string $function): void
+    public function testLanguages(array $case, string $function): void
     {
         $in = $case['in'];
-        $overrides = $case['overrides'] ?? [];
-        $actual = match ($function) {
-            'normalize' => LanguageCodes::normalize($in),
-            'source' => LanguageCodes::source($in, $overrides),
-            'target' => LanguageCodes::target($in, $overrides),
-            'isValid' => LanguageCodes::isValid($in),
+        $mapping = $case['mapping'] ?? [];
+        $call = static fn (): mixed => match ($function) {
+            'matchTarget' => Languages::matchTarget($in),
+            'matchSource' => Languages::matchSource($in),
+            'resolveTarget' => Languages::target($in, $mapping),
+            'resolveSource' => Languages::source($in, $mapping),
+            'supportsPoliteness' => Languages::supportsPoliteness($in),
         };
-        self::assertSame($case['out'], $actual);
+        if (isset($case['error'])) {
+            try {
+                $call();
+                self::fail('expected ' . $case['error']);
+            } catch (SupertextException $e) {
+                self::assertSame($case['error'], $e->errorCode);
+                // The code that has no Supertext code, trimmed (null when blank).
+                $trimmed = trim($in) === '' ? null : trim($in);
+                self::assertSame($trimmed, $function === 'resolveTarget' ? $e->targetLang : $e->sourceLang);
+            }
+
+            return;
+        }
+        self::assertSame($case['out'], $call());
+    }
+
+    public function testIsSupported(): void
+    {
+        foreach (Languages::TARGETS as $language) {
+            self::assertTrue(Languages::isSupportedTarget($language['code']));
+            self::assertTrue(Languages::isSupportedTarget(strtolower(str_replace('-', '_', $language['code']))));
+        }
+        foreach (Languages::SOURCES as $language) {
+            self::assertTrue(Languages::isSupportedSource(' ' . strtoupper($language['code']) . ' '));
+        }
+        self::assertFalse(Languages::isSupportedTarget('de'));
+        self::assertFalse(Languages::isSupportedTarget(''));
+        // Sources: exact only (matchSource also takes the first subtag).
+        self::assertFalse(Languages::isSupportedSource('en-US'));
+        self::assertFalse(Languages::isSupportedSource(''));
     }
 
     // ---- auth-header.json ----
@@ -96,7 +128,7 @@ final class SpecTest extends TestCase
     {
         if (isset($case['error'])) {
             try {
-                Supertext::authHeader($case['in']);
+                Protocol::authHeader($case['in']);
                 self::fail('expected ' . $case['error']);
             } catch (SupertextException $e) {
                 self::assertSame($case['error'], $e->errorCode);
@@ -104,7 +136,7 @@ final class SpecTest extends TestCase
 
             return;
         }
-        self::assertSame($case['out'], Supertext::authHeader($case['in']));
+        self::assertSame($case['out'], Protocol::authHeader($case['in']));
     }
 
     // ---- retry-delay.json ----
@@ -121,7 +153,7 @@ final class SpecTest extends TestCase
     {
         // Lowest and highest jitter, and the real random source.
         foreach ([static fn (int $min, int $max): int => $min, static fn (int $min, int $max): int => $max, null] as $random) {
-            $delay = Supertext::retryDelayMs($case['attempt'], $case['retryAfter'], $random);
+            $delay = Protocol::retryDelayMs($case['attempt'], $case['retryAfter'], $random);
             self::assertGreaterThanOrEqual($case['min'], $delay);
             self::assertLessThanOrEqual($case['max'], $delay);
         }
@@ -129,7 +161,7 @@ final class SpecTest extends TestCase
 
     public function testMaxRetriesDefault(): void
     {
-        self::assertSame(self::spec('retry-delay.json')['maxRetries'], Supertext::DEFAULT_MAX_RETRIES);
+        self::assertSame(self::spec('retry-delay.json')['maxRetries'], Protocol::DEFAULT_MAX_RETRIES);
     }
 
     // ---- html-document.json ----
@@ -184,7 +216,7 @@ final class SpecTest extends TestCase
 
     public function testDefaultMaxCharacters(): void
     {
-        self::assertSame(self::spec('batching.json')['defaultMaxCharacters'], Supertext::DEFAULT_MAX_CHARACTERS);
+        self::assertSame(self::spec('batching.json')['defaultMaxCharacters'], Protocol::DEFAULT_MAX_CHARACTERS);
     }
 
     /** @return array<string, array{array<string, mixed>}> */
@@ -245,11 +277,12 @@ final class SpecTest extends TestCase
         $error = Client::errorFor(new HttpResponse($case['status'], $case['body']));
         self::assertSame($case['code'], $error->errorCode);
         self::assertSame($case['status'], $error->status);
-        // Every vector lists all four (null = must be null).
+        // Every vector lists all five (null = must be null).
         self::assertSame($case['detail'], $error->detail);
         self::assertSame($case['apiErrorCode'], $error->apiErrorCode);
         self::assertSame($case['sourceLang'], $error->sourceLang);
         self::assertSame($case['targetLang'], $error->targetLang);
+        self::assertSame($case['feature'], $error->feature);
 
         // The same through the client (429 only after the retries).
         $responses = array_fill(0, $case['status'] === 429 ? 5 : 1, new HttpResponse($case['status'], $case['body']));

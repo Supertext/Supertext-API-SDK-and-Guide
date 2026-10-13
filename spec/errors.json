@@ -1,5 +1,5 @@
 {
-  "description": "How API answers map to SupertextError codes. `detail` is the response body with tags (`<…>`) removed, trimmed (ASCII whitespace) and cut to 200 characters; null when that leaves nothing. Every vector lists the expected detail. `apiErrorCode` is the body's JSON `error_code` (null if the body isn't a JSON object with a string error_code). invalid_language_pair: HTTP 400 or 404 whose body contains the text INVALID_LANGUAGE_PAIR (JSON or not); sourceLang/targetLang come from the JSON body's source_lang/target_lang when they are strings (else null). Every HTTP 5xx is service_unavailable. HTTP 429 is first retried (see retry-delay.json); this table applies once the retries are used up.",
+  "description": "How API answers map to SupertextError codes. `detail` is the response body with tags (`<…>`) removed, trimmed (ASCII whitespace) and cut to 200 characters; null when that leaves nothing. Every vector lists the expected detail. `apiErrorCode` is the body's JSON `error_code` (null if the body isn't a JSON object with a string error_code). invalid_language_pair: HTTP 400 or 404 whose body contains the text INVALID_LANGUAGE_PAIR (JSON or not); sourceLang/targetLang come from the JSON body's source_lang/target_lang when they are strings (else null). unsupported_feature: HTTP 400 whose JSON error_code is FEATURE_ERROR (the pair exists but not with this option, e.g. politeness for en-US); `feature` is the body's feature when it is a string (else null). Every vector lists feature (null when not unsupported_feature). Every HTTP 5xx is service_unavailable. HTTP 429 is first retried (see retry-delay.json); this table applies once the retries are used up.",
   "http": [
     {
       "status": 400,
@@ -8,7 +8,8 @@
       "detail": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\",\"source_lang\":\"en\",\"target_lang\":\"de\"}",
       "apiErrorCode": "INVALID_LANGUAGE_PAIR",
       "sourceLang": "en",
-      "targetLang": "de"
+      "targetLang": "de",
+      "feature": null
     },
     {
       "status": 400,
@@ -17,7 +18,8 @@
       "detail": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\"}",
       "apiErrorCode": "INVALID_LANGUAGE_PAIR",
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 400,
@@ -26,7 +28,8 @@
       "detail": "INVALID_LANGUAGE_PAIR",
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 404,
@@ -35,7 +38,38 @@
       "detail": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\",\"message\":\"This language combination is not supported.\",\"source_lang\":\"en\",\"target_lang\":\"xx-YY\"}",
       "apiErrorCode": "INVALID_LANGUAGE_PAIR",
       "sourceLang": "en",
-      "targetLang": "xx-YY"
+      "targetLang": "xx-YY",
+      "feature": null
+    },
+    {
+      "status": 400,
+      "body": "{\"error_code\":\"FEATURE_ERROR\",\"feature\":\"politeness\",\"message\":\"The feature 'politeness' is not supported for the requested configuration. Please consult the feature-support endpoint at /v1/features.\",\"source_lang\":\"de\",\"target_lang\":\"en-US\"}",
+      "code": "unsupported_feature",
+      "detail": "{\"error_code\":\"FEATURE_ERROR\",\"feature\":\"politeness\",\"message\":\"The feature 'politeness' is not supported for the requested configuration. Please consult the feature-support endpoint at /v1/features.\"",
+      "apiErrorCode": "FEATURE_ERROR",
+      "sourceLang": "de",
+      "targetLang": "en-US",
+      "feature": "politeness"
+    },
+    {
+      "status": 400,
+      "body": "{\"error_code\":\"FEATURE_ERROR\"}",
+      "code": "unsupported_feature",
+      "detail": "{\"error_code\":\"FEATURE_ERROR\"}",
+      "apiErrorCode": "FEATURE_ERROR",
+      "sourceLang": null,
+      "targetLang": null,
+      "feature": null
+    },
+    {
+      "status": 404,
+      "body": "{\"error_code\":\"FEATURE_ERROR\"}",
+      "code": "not_found",
+      "detail": "{\"error_code\":\"FEATURE_ERROR\"}",
+      "apiErrorCode": "FEATURE_ERROR",
+      "sourceLang": null,
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 400,
@@ -44,7 +78,8 @@
       "detail": "{\"error_code\":\"INVALID_MULTIPART\"}",
       "apiErrorCode": "INVALID_MULTIPART",
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 401,
@@ -53,7 +88,8 @@
       "detail": null,
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 403,
@@ -62,7 +98,8 @@
       "detail": "Forbidden",
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 404,
@@ -71,7 +108,8 @@
       "detail": "{}",
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 413,
@@ -80,7 +118,8 @@
       "detail": null,
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 415,
@@ -89,7 +128,8 @@
       "detail": null,
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 429,
@@ -98,7 +138,8 @@
       "detail": "{\"error_code\":\"RATE_LIMIT_EXCEEDED\"}",
       "apiErrorCode": "RATE_LIMIT_EXCEEDED",
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 500,
@@ -107,7 +148,8 @@
       "detail": null,
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 502,
@@ -116,7 +158,8 @@
       "detail": null,
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 503,
@@ -125,7 +168,8 @@
       "detail": null,
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 504,
@@ -134,7 +178,8 @@
       "detail": null,
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 418,
@@ -143,7 +188,8 @@
       "detail": null,
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 505,
@@ -152,7 +198,8 @@
       "detail": null,
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 599,
@@ -161,7 +208,8 @@
       "detail": null,
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 400,
@@ -170,7 +218,8 @@
       "detail": "{\"error_code\":\"INVALID_LANGUAGE_PAIR\",\"source_lang\":null,\"target_lang\":7}",
       "apiErrorCode": "INVALID_LANGUAGE_PAIR",
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 400,
@@ -179,7 +228,8 @@
       "detail": "[\"INVALID_LANGUAGE_PAIR\"]",
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 401,
@@ -188,7 +238,8 @@
       "detail": "{\"error_code\":42}",
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     },
     {
       "status": 500,
@@ -197,7 +248,8 @@
       "detail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
       "apiErrorCode": null,
       "sourceLang": null,
-      "targetLang": null
+      "targetLang": null,
+      "feature": null
     }
   ],
   "fileStatus": [
@@ -229,7 +281,9 @@
   "codes": {
     "missing_api_key": "No API key configured. No request was sent.",
     "authentication_failure": "HTTP 401/403: the key is wrong, revoked or lacks access.",
-    "invalid_language_pair": "HTTP 400 (or 404 for an unknown language) INVALID_LANGUAGE_PAIR: usually a bare target (\"de\") or a regional source (\"en-US\").",
+    "invalid_language_pair": "HTTP 400 or 404 INVALID_LANGUAGE_PAIR: a code Supertext doesn't offer (e.g. de or es-ES as target; the live API answers 404 since October 2026).",
+    "unsupported_language": "No request was sent: the language has no Supertext code (no mapping and no exact match, spec/languages.json → resolve). Ask the administrator to map it.",
+    "unsupported_feature": "HTTP 400 FEATURE_ERROR: the language pair exists, but not with this option (e.g. politeness for en-US, rm, sq); `feature` names it.",
     "not_found": "HTTP 404: unknown file id (expired after 24 h or already deleted).",
     "payload_too_large": "HTTP 413: the document is over the API's size limit.",
     "too_many_requests": "HTTP 429 after all retries.",

@@ -12,7 +12,8 @@ import pytest
 from conftest import FakeTransport, json_response, make_client, multipart_parts, text_response
 
 import supertext
-from supertext import Client, ErrorCode, HttpResponse, Segment, SupertextError
+from supertext import v1
+from supertext.v1 import ErrorCode, HttpResponse, Segment, SupertextClient, SupertextError
 
 KEY = "secret-key-123"
 
@@ -38,7 +39,7 @@ def happy(*contents: str, file_id: str = "f1") -> list[HttpResponse]:
 def test_upload_fields_order_and_content_type() -> None:
     transport = FakeTransport([json_response({"file_id": "abc"})])
     client, _ = make_client(transport)
-    assert client.submit("<p>Grüezi</p>", "de_ch", "en-GB", "more") == "abc"
+    assert client.submit("<p>Grüezi</p>", "de-CH", "en", "more") == "abc"
     request = transport.requests[0]
     assert request.method == "POST"
     assert request.url == "https://api.test/v1/translate/ai/file"
@@ -56,13 +57,55 @@ def test_upload_fields_order_and_content_type() -> None:
     assert all("Content-Type" not in headers for _, headers, _ in parts[:3])
 
 
-def test_upload_language_codes_are_normalized() -> None:
+def test_upload_sends_language_codes_as_given() -> None:
     transport = FakeTransport([json_response({"file_id": "abc"})])
     client, _ = make_client(transport)
-    client.submit("x", "de", "DE-ch")
+    client.submit("x", " de ", " en-US ")
     fields = {name: value for name, _, value in multipart_parts(transport.requests[0])}
-    assert fields["target_lang"] == "de-DE"
-    assert fields["source_lang"] == "de"
+    assert fields["target_lang"] == "de"
+    assert fields["source_lang"] == "en-US"
+
+
+@pytest.mark.parametrize("target", ["", "   "])
+def test_empty_target_sends_nothing(target: str) -> None:
+    transport = FakeTransport()
+    client, _ = make_client(transport)
+    with pytest.raises(SupertextError) as raised:
+        client.translate_texts({"a": "Hello"}, target)
+    assert raised.value.code == ErrorCode.UNSUPPORTED_LANGUAGE
+    assert transport.requests == []
+
+
+def test_get_features() -> None:
+    body = {
+        "supported_features": [
+            {"source_lang": "de", "target_lang": "en-US", "features": ["supports_glossary", 3]},
+            {"source_lang": "en", "target_lang": "de-CH"},
+            {"source_lang": "en"},
+            "junk",
+            {"source_lang": 1, "target_lang": "fr-CH", "features": []},
+        ]
+    }
+    transport = FakeTransport([json_response(body)])
+    client, _ = make_client(transport)
+    assert client.get_features() == [
+        v1.FeatureSupport("de", "en-US", ("supports_glossary",)),
+        v1.FeatureSupport("en", "de-CH", ()),
+    ]
+    assert transport.calls == ["GET features"]
+
+
+@pytest.mark.parametrize("body", [{}, {"supported_features": "x"}, []])
+def test_get_features_without_a_list(body: object) -> None:
+    client, _ = make_client(FakeTransport([json_response(body)]))
+    assert client.get_features() == []
+
+
+def test_get_features_raises_on_http_errors() -> None:
+    client, _ = make_client(FakeTransport([text_response("", 401)]))
+    with pytest.raises(SupertextError) as raised:
+        client.get_features()
+    assert raised.value.code == ErrorCode.AUTHENTICATION_FAILURE
 
 
 @pytest.mark.parametrize("source", [None, "", "  "])
@@ -110,12 +153,12 @@ def test_user_agent_option_and_request_timeout() -> None:
 @pytest.mark.parametrize("base_url", ["https://x.test/v1", "https://x.test/v1/", "https://x.test/v1//"])
 def test_base_url_gets_one_trailing_slash(base_url: str) -> None:
     transport = FakeTransport([json_response({})])
-    Client(KEY, base_url=base_url, transport=transport).validate_api_key()
+    SupertextClient(KEY, base_url=base_url, transport=transport).validate_api_key()
     assert transport.requests[0].url == "https://x.test/v1/features"
 
 
 def test_default_base_url_is_live() -> None:
-    assert Client(KEY).base_url == supertext.LIVE_BASE_URL == "https://api.supertext.com/v1/"
+    assert SupertextClient(KEY).base_url == v1.LIVE_BASE_URL == "https://api.supertext.com/v1/"
 
 
 def test_file_id_is_url_encoded() -> None:
@@ -137,9 +180,9 @@ def test_file_id_is_url_encoded() -> None:
 @pytest.mark.parametrize("api_key", [None, "", "   ", "Supertext-Auth-Key "])
 def test_missing_key_sends_nothing(api_key: str | None) -> None:
     transport = FakeTransport()
-    client = Client(api_key, transport=transport)  # does not raise
+    client = SupertextClient(api_key, transport=transport)  # does not raise
     with pytest.raises(SupertextError) as raised:
-        client.translate_texts({"a": "Hello"}, "de")
+        client.translate_texts({"a": "Hello"}, "de-CH")
     assert raised.value.code == ErrorCode.MISSING_API_KEY
     assert transport.requests == []
     assert "https://www.supertext.com/en/integrations/api" in raised.value.message
@@ -249,7 +292,7 @@ def test_polling_exactly_at_timeout_still_polls() -> None:
 def test_translate_html_happy_path() -> None:
     transport = FakeTransport(happy("Hallo"))
     client, _ = make_client(transport)
-    html = client.translate_html("<p>Hello</p>", "de")
+    html = client.translate_html("<p>Hello</p>", "de-CH")
     assert "Hallo" in html
     assert transport.calls == [
         "POST translate/ai/file",
@@ -314,8 +357,8 @@ def test_translate_texts() -> None:
             "body": Segment("<p>A <b>text</b></p>", html=True),
             "lines": Segment("Line 1\nLine 2"),
         },
-        "de",
-        "en-US",
+        "de-CH",
+        "en",
     )
     assert list(result) == ["title", "blank", "body", "lines"]
     assert result == {
@@ -337,7 +380,7 @@ def test_translate_texts() -> None:
 def test_translate_texts_nothing_to_send() -> None:
     transport = FakeTransport()
     client, _ = make_client(transport, api_key="")  # not even the missing key matters
-    assert client.translate_texts({"a": "", "b": Segment(" \n ", html=True)}, "de") == {"a": "", "b": " \n "}
+    assert client.translate_texts({"a": "", "b": Segment(" \n ", html=True)}, "de-CH") == {"a": "", "b": " \n "}
     assert transport.requests == []
 
 
@@ -398,7 +441,7 @@ def server() -> Iterator[str]:
 
 
 def test_urllib_transport(server: str) -> None:
-    client = Client(KEY, base_url=server)
+    client = SupertextClient(KEY, base_url=server)
     client.validate_api_key()
     with pytest.raises(SupertextError) as raised:
         client.get_status("x")
@@ -411,5 +454,5 @@ def test_urllib_transport_connection_refused() -> None:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     with pytest.raises(SupertextError) as raised:
-        Client(KEY, base_url=f"http://127.0.0.1:{port}/v1", request_timeout=2).validate_api_key()
+        SupertextClient(KEY, base_url=f"http://127.0.0.1:{port}/v1", request_timeout=2).validate_api_key()
     assert raised.value.code == ErrorCode.TRANSPORT_ERROR

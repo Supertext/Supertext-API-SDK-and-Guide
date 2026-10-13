@@ -6,8 +6,8 @@ namespace Supertext\Sdk\Tests;
 
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
-use Supertext\Sdk\Client;
-use Supertext\Sdk\SupertextException;
+use Supertext\Sdk\V1\Client;
+use Supertext\Sdk\V1\SupertextException;
 
 /**
  * The default transport without a server (the stand-in conformance run covers real answers).

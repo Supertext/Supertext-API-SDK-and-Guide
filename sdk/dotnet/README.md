@@ -1,6 +1,8 @@
 # Supertext SDK for .NET
 
-Client for the Supertext AI translation API: translate HTML and texts, with language codes, rate-limit retries and HTML packing handled for you. NuGet package `Supertext.Sdk`, namespace `Supertext.Sdk`, `net8.0`, no dependencies.
+Client for the Supertext AI translation API: translate HTML and texts, with the supported languages, rate-limit retries and HTML packing handled for you. NuGet package `Supertext.Sdk`, `net8.0`, no dependencies.
+
+Everything that talks to the API v1 is in the namespace **`Supertext.Sdk.V1`**. A later API version gets `Supertext.Sdk.V2` next to it, so an integration can move at its own pace. Only the SDK's version, `Supertext.Sdk.SdkInfo.Version`, is outside the versioned namespace.
 
 It packages what Supertext's CMS plugins learned against the live API (October 2026). Background and the protocol: [integration guide](../../docs/integration-guide.md).
 
@@ -15,7 +17,7 @@ You need an API key. No Supertext account yet? Create one at https://www.superte
 ## Quick start
 
 ```csharp
-using Supertext.Sdk;
+using Supertext.Sdk.V1;
 
 var client = new SupertextClient(Environment.GetEnvironmentVariable("SUPERTEXT_API_KEY"),
     new SupertextClientOptions { UserAgent = "My-CMS-Plugin/1.0.0" });
@@ -30,43 +32,57 @@ var translated = await client.TranslateTextsAsync(new Dictionary<string, Segment
 Console.WriteLine(translated["title"]);
 
 // A whole HTML document: upload, poll, download, delete.
-string html = await client.TranslateHtmlAsync("<p>Hello</p>", "fr");
+string html = await client.TranslateHtmlAsync("<p>Hello</p>", "fr-CH");
 ```
 
 Send each paragraph (heading, list item) as **one** segment, with formatting and links as inline tags. Every segment is translated on its own; splitting a sentence at its formatting breaks the translation.
 
 `TranslateTextsAsync` takes any `IEnumerable<KeyValuePair<string, Segment>>`. Blank texts come back unchanged and cost no request. Large inputs are split into several documents of at most `maxCharacters` (default 900,000), sent one after the other.
 
-The lower-level steps are public too: `SubmitAsync`, `GetStatusAsync`, `WaitUntilDoneAsync`, `DownloadAsync`, `DeleteAsync` (never throws), `ValidateApiKeyAsync` (a cost-free key check that throws) and `CheckApiKeyAsync` (the same check as a result, see below). Every method takes a `CancellationToken`.
+The language codes are sent exactly as given (only trimmed): pass Supertext codes, resolved with `Languages` (below). An empty target throws `unsupported_language` without a request; a null or empty source is left out (Supertext detects the language).
 
-## Language codes
+The lower-level steps are public too: `GetFeaturesAsync` (the live language pairs, see below), `SubmitAsync`, `GetStatusAsync`, `WaitUntilDoneAsync`, `DownloadAsync`, `DeleteAsync` (never throws), `ValidateApiKeyAsync` (a cost-free key check that throws) and `CheckApiKeyAsync` (the same check as a result, see below). Every method takes a `CancellationToken`.
 
-Supertext wants the **source as a bare language** (`en`) and the **target as a regional code** (`de-DE`); anything else is rejected with `invalid_language_pair`. The client fixes this itself: `de` → `de-DE`, `en-US` (source) → `en`, `de_ch` → `de-CH`. A null or empty source means auto-detect.
+## Languages
 
-If your CMS locales should map differently (e.g. your `de` site is Swiss German), resolve them yourself first:
+`Languages.Sources` and `Languages.Targets` list what Supertext offers (`SourceLanguage(Code, Name)`, `TargetLanguage(Code, Name, Politeness)`). Sources are bare languages (`en`, `de`, `gsw`). Targets are exactly what Supertext expects: with a region for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), with a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), a dialect for Swiss German (`gsw-u-sd-chzh`), bare for the others (`es`, `nl`, `sl`). Anything else is rejected by the API (`invalid_language_pair`).
+
+There is **no default region and no guessing**: `de` is not a target, because the SDK can't know whether your site means Germany, Austria or Switzerland. Let the administrator map each CMS language (a setting per language) and resolve it before you call the client:
 
 ```csharp
-var overrides = new Dictionary<string, string> { ["de"] = "de-CH", ["no"] = "nb-NO" };
-var target = LanguageCodes.Target(cmsLocale, overrides);   // "de" → "de-CH"
-var source = LanguageCodes.Source(cmsLocale, overrides);   // "no" → "nb"
-LanguageCodes.IsValid("de_ch");                            // true
-LanguageCodes.Normalize("zh_hant_tw");                     // "zh-Hant-TW"
-LanguageCodes.Normalize("de_DE_formal");                   // "de-DE" (variants dropped; formal address: Politeness)
+// The integration's language setting: CMS language → Supertext code.
+var mapping = new Dictionary<string, string> { ["de"] = "de-CH", ["no"] = "nb" };
+
+var target = Languages.Target(cmsLanguage, mapping);  // "de" → "de-CH", "fr_ch" → "fr-CH" (exact match), "it" → unsupported_language
+var source = Languages.Source(cmsSource, mapping);    // "en-US" → "en", "" → "" (auto-detect)
+await client.TranslateTextsAsync(texts, target, source);
+
+Languages.MatchTarget("de_ch");          // "de-CH" (case and _/- don't matter); "de" → null
+Languages.MatchSource("en-GB");          // "en" (exact, else the first subtag)
+Languages.SupportsPoliteness("en-US");   // false (true for de-CH; null for a code not in the list)
+Languages.IsSupportedTarget("es-ES");    // false
+Languages.IsSupportedSource("gsw");      // true
 ```
+
+`Target` returns the mapping's value (trimmed, sent even if it isn't in the list, so a language Supertext adds later works before the SDK knows it), else an exact match, else throws `SupertextException` with code `unsupported_language` and `TargetLang` set; nothing is sent. `Source` works the same way (`SourceLang` set), and an empty source stays empty. Mapping keys are compared like codes (case, `_`/`-` and spaces don't matter); blank values are ignored. Use `MatchTarget` to prefill the mapping for CMS languages that already are Supertext codes.
+
+**The live list.** `GetFeaturesAsync()` returns the language pairs the API offers right now (`GET features`, no cost) as `FeatureSupport(SourceLang, TargetLang, Features)`, with features such as `supports_politeness`, e.g. for a settings page. Malformed entries are skipped.
 
 ## Politeness
 
-`Politeness.Default` (nothing is sent), `Politeness.More` (formal: Sie, vous) or `Politeness.Less` (informal: du, tu).
+`Politeness.Default` (nothing is sent), `Politeness.More` (formal: Sie, vous, Lei) or `Politeness.Less` (informal: du, tu). Not every target offers it (`TargetLanguage.Politeness`, `Languages.SupportsPoliteness`): for `en-US`, `rm`, `sq` and others the API answers `unsupported_feature`. Hide the formal/informal choice for those targets; the SDK sends what it is given.
 
 ## Errors
 
-Everything the API or the client can't handle is a `SupertextException` with `Code` (constants in `SupertextErrorCodes`), an English `Message`, and `Status`, `Detail`, `ApiErrorCode`, `SourceLang`/`TargetLang` where known. The API key never appears in messages or details. Cancelling your token throws `OperationCanceledException` as usual.
+Everything the API or the client can't handle is a `SupertextException` with `Code` (constants in `SupertextErrorCodes`), an English `Message`, and `Status`, `Detail`, `ApiErrorCode`, `SourceLang`/`TargetLang` and `Feature` where known. The API key never appears in messages or details. Cancelling your token throws `OperationCanceledException` as usual.
 
 | Code | Meaning | What to tell the user |
 | --- | --- | --- |
 | `missing_api_key` | No key configured; nothing was sent | Enter the API key in the settings (with the account and API-key links above) |
 | `authentication_failure` | HTTP 401/403 | The API key is wrong or revoked: check it (links above) |
 | `invalid_language_pair` | HTTP 400 (404 for an unknown language) `INVALID_LANGUAGE_PAIR` | Supertext doesn't support this language combination; check the language mapping |
+| `unsupported_language` | No request was sent: the language has no Supertext code (no mapping, no exact match) or the target is empty | Map this language to a Supertext language in the settings |
+| `unsupported_feature` | HTTP 400 `FEATURE_ERROR`: the pair exists, but not with this option (`Feature`, e.g. `politeness`) | Formal/informal isn't available for this language; choose the default |
 | `not_found` | HTTP 404 | The file expired or was deleted; try again |
 | `payload_too_large` | HTTP 413 | The content is too large; translate less at once |
 | `too_many_requests` | HTTP 429 after all retries | Too many requests; try again in a moment |
@@ -101,7 +117,7 @@ var result = await reporter.AfterSettingsSavedAsync(ReporterState.FromJson(store
 Save(result.State.ToJson());      // result.Check: show it to administrators
 ```
 
-Call `AfterSettingsSavedAsync` after a settings save, `OnRequestAsync` on back-end requests (checks the key only if it changed, reports only what changed), `AuthenticationFailedAsync(state, key, 403)` when a translation was rejected, `TestConnectionAsync` for a "Test connection" button and `ReportCheckAsync` for a command that reports now. `BuildReport(ReportEvents.Check, state)` shows what would be sent. Reports go to `SUPERTEXT_REPORT_URL` if set, else `Reporting.DefaultReportUrl`, with a 3 s timeout. `Runtime` defaults to `.NET` and `Environment.Version`, `SdkVersion` to `SupertextClient.SdkVersion`.
+Call `AfterSettingsSavedAsync` after a settings save, `OnRequestAsync` on back-end requests (checks the key only if it changed, reports only what changed), `AuthenticationFailedAsync(state, key, 403)` when a translation was rejected, `TestConnectionAsync` for a "Test connection" button and `ReportCheckAsync` for a command that reports now. `BuildReport(ReportEvents.Check, state)` shows what would be sent. Reports go to `SUPERTEXT_REPORT_URL` if set, else `Reporting.DefaultReportUrl`, with a 3 s timeout. `Runtime` defaults to `.NET` and `Environment.Version`, `SdkVersion` to `SdkInfo.Version`.
 
 **Ping.** The center confirms a reported callback URL with `GET <callback>?challenge=<c>`. Answer it with `PingResponse.For(challenge, "Umbraco-Supertext-Translation", enabled)` and copy its `Status`, `Headers` (`Content-Type: application/json`, `Cache-Control: no-store`) and `Body` to the response: 200 with the challenge echoed, 400 for a bad challenge, 404 while reporting is off.
 
@@ -125,7 +141,7 @@ Also public: `SupertextClient.AuthHeader(key)`, `SupertextClient.RetryDelayMs(at
 
 ## Testing against the stand-in
 
-The repository's stand-in API (`stand-in/stand-in.mjs`, Node 18+) behaves like the live API where integrations went wrong before, and prefixes each translated segment with `[de-DE]`:
+The repository's stand-in API (`stand-in/stand-in.mjs`, Node 18+) behaves like the live API where integrations went wrong before, and prefixes each translated segment with the target code (`[de-CH]`):
 
 ```sh
 node stand-in/stand-in.mjs          # http://127.0.0.1:8765/v1/

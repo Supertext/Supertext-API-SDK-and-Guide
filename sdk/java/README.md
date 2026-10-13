@@ -1,6 +1,6 @@
 # Supertext SDK for Java
 
-Client for the Supertext AI translation API: translate HTML and texts, with language codes, rate-limit retries and HTML packing handled for you.
+Client for the Supertext AI translation API: translate HTML and texts, with the supported languages, rate-limit retries and HTML packing handled for you.
 
 Java 11+, no runtime dependencies (uses `java.net.http.HttpClient`). For the protocol and the lessons behind it, see the [integration guide](../../docs/integration-guide.md).
 
@@ -10,11 +10,13 @@ Java 11+, no runtime dependencies (uses `java.net.http.HttpClient`). For the pro
 <dependency>
   <groupId>com.supertext</groupId>
   <artifactId>supertext-sdk</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
-Gradle: `implementation("com.supertext:supertext-sdk:0.1.0")`.
+Gradle: `implementation("com.supertext:supertext-sdk:0.2.0")`.
+
+Everything that talks to the API is versioned: API v1 lives in the package `com.supertext.sdk.v1`. A later API version gets `com.supertext.sdk.v2` next to it, so an integration can move at its own pace. Version-neutral parts stay in `com.supertext.sdk`: `SdkInfo.VERSION` (this SDK's version) and the HTTP layer (`Transport`, `JdkHttpTransport`).
 
 ## API key
 
@@ -25,7 +27,7 @@ Pass the key as administrators paste it: a leading `Supertext-Auth-Key ` is stri
 ## Quick start
 
 ```java
-import com.supertext.sdk.*;
+import com.supertext.sdk.v1.*;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -41,43 +43,58 @@ Map<String, String> german = client.translateTexts(segments, "de-CH", "en", Poli
 german.get("title"); // "Hallo und willkommen"
 
 // A whole HTML document: upload, wait, download, delete.
-String html = client.translateHtml("<p data-st-id=\"1\">Good morning</p>", "fr", "en");
+String html = client.translateHtml("<p data-st-id=\"1\">Good morning</p>", "fr-CH", "en");
 ```
 
 Plain-text segments are escaped and keep their line breaks; HTML segments are sent as they are. Keep a whole paragraph in **one** segment with formatting as inline tags (`<b>`, `<i>`, `<a href>`): Supertext translates every segment on its own, so a segment per formatted run breaks sentences apart. Blank texts come back unchanged and aren't sent.
 
 The calls block and throw `InterruptedException` when the thread is interrupted; the uploaded file is still deleted. Documents are translated one after the other (the API limits requests per second).
 
-Lower-level calls: `validateApiKey()` (free check of the key; throws), `checkApiKey()` (never throws, see below), `submit`, `getStatus`, `waitUntilDone`, `download`, `delete` (never throws).
+Lower-level calls: `validateApiKey()` (free check of the key; throws), `checkApiKey()` (never throws, see below), `getFeatures()` (see *Languages*), `submit`, `getStatus`, `waitUntilDone`, `download`, `delete` (never throws).
 
-## Language codes
+## Languages
 
-Supertext wants the **source as a bare language** (`en`) and the **target with a region** (`de-DE`); anything else is `invalid_language_pair`. The client fixes codes for you: targets get a default region (`de` → `de-DE`, `fr_ch` → `fr-CH`), sources are cut to the language (`en-US` → `en`). An empty source means auto-detect.
+The client sends language codes **as given** (trimmed); it doesn't convert them. An empty target is `unsupported_language` without a request; an empty source is left out (auto-detect).
 
-If your CMS's locales don't map one to one, pass overrides (CMS locale → Supertext code) yourself:
+Supertext's codes are fixed: sources are bare (`en`, `de`, `gsw`), targets are what Supertext expects exactly: regional for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), a dialect for Swiss German (`gsw-u-sd-chzh`), bare for the others (`es`, `nl`, `sl`). `Languages.SOURCES` and `Languages.TARGETS` list them (`SourceLanguage`/`TargetLanguage`: `getCode()`, `getName()`, and for targets `supportsPoliteness()`). There is **no default region** and no guessing: a CMS language that equals a Supertext code (apart from case, `_`/`-` and spaces) is used as it is; anything else needs a mapping, a setting per language that the administrator fills in.
 
 ```java
-Map<String, String> overrides = Map.of("de", "de-CH", "no", "nb-NO");
-String target = LanguageCodes.target(cmsLocale, overrides);   // "de" → "de-CH"
-String source = LanguageCodes.source(cmsLocale, overrides);   // "no" → "nb"
-LanguageCodes.isValid("de_ch");                                // true
-LanguageCodes.normalize(" zh_hant_tw ");                       // "zh-Hant-TW"
-LanguageCodes.normalize("de_DE_formal");                       // "de-DE" (variants dropped; formal address: Politeness)
+Map<String, String> mapping = Map.of("de", "de-CH", "no", "nb"); // CMS language → Supertext code (your setting)
+
+Languages.target("de_ch");             // "de-CH" (exact match)
+Languages.target("de", mapping);       // "de-CH" (mapped)
+Languages.target("de");                // throws SupertextException unsupported_language, getTargetLang() "de": ask for a mapping
+Languages.source("en-US");             // "en" (a source is the first subtag)
+Languages.source("");                  // "" (auto-detect)
+
+Languages.matchTarget("de");           // null: no exact match (show "please map this language")
+Languages.matchSource("de_DE_formal"); // "de"
+Languages.isSupportedTarget("es");     // true
+Languages.isSupportedSource("xx");     // false
+Languages.supportsPoliteness("en-US"); // false (null for an unknown code): hide the formal/informal choice
+
+client.translateTexts(segments, Languages.target(cmsLocale, mapping), Languages.source(cmsSourceLocale, mapping));
 ```
+
+A mapping value is sent trimmed and otherwise unchanged, even if it isn't in `TARGETS`, so a language Supertext adds later works before the SDK knows it.
+
+**Live list.** `client.getFeatures()` returns the language pairs the API offers right now (`GET features`, free of charge) as `FeatureSupport` objects: `getSourceLang()`, `getTargetLang()`, `getFeatures()` (e.g. `supports_politeness`, `supports_glossary`). Malformed entries are skipped. Use it for a settings page's language choice; `Languages` is the list as of this SDK version.
 
 ## Politeness
 
-`Politeness.DEFAULT` (not sent), `MORE` (formal: Sie, vous, Lei) or `LESS` (informal: du, tu). `Politeness.fromValue("more")` parses settings; any other value (including `default`) gives `DEFAULT`, so nothing is sent.
+`Politeness.DEFAULT` (not sent), `MORE` (formal: Sie, vous, Lei) or `LESS` (informal: du, tu). `Politeness.fromValue("more")` parses settings; any other value (including `default`) gives `DEFAULT`, so nothing is sent. Not every target offers it (`Languages.supportsPoliteness`); for those the API answers `unsupported_feature`, so hide the choice there. The SDK sends what it is given.
 
 ## Errors
 
-Every failure is a `SupertextException` (unchecked) with `getCode()` (`ErrorCode`), `getStatus()` (HTTP status or `null`), `getDetail()`, `getApiErrorCode()` and, for language pairs, `getSourceLang()`/`getTargetLang()`. The message is English, for logs; it never contains the API key. `ErrorCode.value()` gives the string shared by all Supertext SDKs.
+Every failure is a `SupertextException` (unchecked) with `getCode()` (`ErrorCode`), `getStatus()` (HTTP status or `null`), `getDetail()`, `getApiErrorCode()`, for language errors `getSourceLang()`/`getTargetLang()` and, for `unsupported_feature`, `getFeature()` (e.g. `politeness`). The message is English, for logs: the code's message (`ErrorCode.message()`, the same in every Supertext SDK), plus ` HTTP <status>.` and ` Details: <detail>` when known; it never contains the API key. `ErrorCode.value()` gives the string shared by all Supertext SDKs.
 
 | Code | Tell the user |
 | --- | --- |
 | `missing_api_key` | No API key configured (add the account and key links above). Nothing was sent. |
 | `authentication_failure` | The API key was rejected: check it, or generate a new one (links above). |
-| `invalid_language_pair` | Supertext doesn't support this language combination. Check the language settings. |
+| `invalid_language_pair` | Supertext doesn't support this language combination (HTTP 400 or 404). Check the language settings. |
+| `unsupported_language` | This language has no Supertext code: map it to a Supertext language in the settings. Nothing was sent. |
+| `unsupported_feature` | Supertext doesn't offer this option (`getFeature()`, e.g. formal/informal) for the language pair. |
 | `not_found` | The translation job no longer exists. Try again. |
 | `payload_too_large` | The content is too large to translate in one go. |
 | `too_many_requests` | Supertext is busy. Try again in a moment. |
@@ -122,7 +139,7 @@ r.getCheck();                                                       // the lates
 | `testConnection(state, key)` | "Test connection": checks the key, reports a change |
 | `reportCheck(state)` | Commands and tests: sends `check` now |
 
-`buildReport(event, state)` / `buildReportJson(...)` give the body; `versions()` the `<plugin>|<system>|<runtime>` string. Options for tests: `transport` (shared with the key check), `apiBaseUrl`, `sleeper`, `clock`. Constants in `Reporting` (`DEFAULT_REPORT_URL`, `REPORT_TIMEOUT`, `KEY_CHECK_TIMEOUT`, `FAILURE_BACKOFF`); `SupertextClient.SDK_VERSION` is this SDK's version.
+`buildReport(event, state)` / `buildReportJson(...)` give the body; `versions()` the `<plugin>|<system>|<runtime>` string. Options for tests: `transport` (shared with the key check), `apiBaseUrl`, `sleeper`, `clock`. Constants in `Reporting` (`DEFAULT_REPORT_URL`, `REPORT_TIMEOUT`, `KEY_CHECK_TIMEOUT`, `FAILURE_BACKOFF`); `com.supertext.sdk.SdkInfo.VERSION` is this SDK's version.
 
 **Ping.** The callback URL answers the center's `GET <callback>?challenge=<c>` without login:
 
@@ -154,7 +171,7 @@ SupertextClient.builder(apiKey)
 
 ## Testing against the stand-in
 
-The repository's stand-in behaves like the live API where integrations went wrong (auth header, language codes, `text/html`, 429):
+The repository's stand-in behaves like the live API where integrations went wrong (auth header, language codes, politeness, `text/html`, 429):
 
 ```sh
 node stand-in/stand-in.mjs            # from the repo root; prints http://127.0.0.1:8765/v1/
@@ -164,7 +181,7 @@ node stand-in/stand-in.mjs            # from the repo root; prints http://127.0.
 SupertextClient client = SupertextClient.builder("test-key").baseUrl("http://127.0.0.1:8765/v1/").build();
 ```
 
-Translations come back with `[de-DE] ` in front of each segment.
+Translations come back with the target code in front of each segment (`[de-CH] …`).
 
 ## Development
 

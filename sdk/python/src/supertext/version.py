@@ -2,4 +2,4 @@
 
 from typing import Final
 
-SDK_VERSION: Final = "0.1.0"
+SDK_VERSION: Final = "0.2.0"

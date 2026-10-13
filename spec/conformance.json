@@ -1,45 +1,93 @@
 {
-  "description": "End-to-end scenarios every SDK passes against the stand-in (stand-in/conformance.mjs). Each SDK ships a small conformance program: it reads one request as JSON on stdin, translates it with translateTexts using SUPERTEXT_API_URL and SUPERTEXT_API_KEY from the environment (poll interval 100 ms), and prints {\"translations\": {key: text}} or {\"error\": {\"code\": …, \"status\": …}} as JSON on stdout. Exit code 0 in both cases.",
+  "description": "End-to-end scenarios every SDK passes against the stand-in (stand-in/conformance.mjs). Each SDK ships a small conformance program: it reads one request as JSON on stdin, translates it with the v1 client's translateTexts (language codes passed through as given) using SUPERTEXT_API_URL and SUPERTEXT_API_KEY from the environment (poll interval 100 ms), and prints {\"translations\": {key: text}} or {\"error\": {\"code\": …, \"status\": …}} as JSON on stdout. Exit code 0 in both cases.",
   "scenarios": [
     {
-      "name": "translate texts, retry a 429, normalize language codes, strip a pasted key prefix, delete the file",
+      "name": "translate texts, retry a 429, send the language codes as given, strip a pasted key prefix, delete the file",
       "apiKey": "Supertext-Auth-Key conformance-key",
       "rateLimit": true,
       "request": {
-        "sourceLang": "en-US",
-        "targetLang": "de",
+        "sourceLang": "en",
+        "targetLang": "de-CH",
         "politeness": "more",
         "segments": [
-          { "key": "title", "text": "Hello & welcome", "html": false },
-          { "key": "body", "text": "<p>Our <b>new</b> shop opens on <a href=\"https://www.supertext.com\">Monday</a>.</p>", "html": true },
-          { "key": "lines", "text": "Line 1\nLine 2", "html": false },
-          { "key": "blank", "text": "  ", "html": false },
-          { "key": "quote", "text": "It's \"fresh\" <today>", "html": false }
+          {
+            "key": "title",
+            "text": "Hello & welcome",
+            "html": false
+          },
+          {
+            "key": "body",
+            "text": "<p>Our <b>new</b> shop opens on <a href=\"https://www.supertext.com\">Monday</a>.</p>",
+            "html": true
+          },
+          {
+            "key": "lines",
+            "text": "Line 1\nLine 2",
+            "html": false
+          },
+          {
+            "key": "blank",
+            "text": "  ",
+            "html": false
+          },
+          {
+            "key": "quote",
+            "text": "It's \"fresh\" <today>",
+            "html": false
+          }
         ]
       },
       "expected": {
         "translations": {
-          "title": "[de-DE] Hello & welcome",
-          "body": "<p>[de-DE] Our <b>new</b> shop opens on <a href=\"https://www.supertext.com\">Monday</a>.</p>",
-          "lines": "[de-DE] Line 1\nLine 2",
+          "title": "[de-CH] Hello & welcome",
+          "body": "<p>[de-CH] Our <b>new</b> shop opens on <a href=\"https://www.supertext.com\">Monday</a>.</p>",
+          "lines": "[de-CH] Line 1\nLine 2",
           "blank": "  ",
-          "quote": "[de-DE] It's \"fresh\" <today>"
+          "quote": "[de-CH] It's \"fresh\" <today>"
         }
       },
-      "expectedUpload": { "target_lang": "de-DE", "source_lang": "en", "politeness": "more", "content_type": "text/html" },
-      "expectedStats": { "submitted": 1, "deleted": 1, "rateLimited": 1 }
+      "expectedUpload": {
+        "target_lang": "de-CH",
+        "source_lang": "en",
+        "politeness": "more",
+        "content_type": "text/html"
+      },
+      "expectedStats": {
+        "submitted": 1,
+        "deleted": 1,
+        "rateLimited": 1
+      }
     },
     {
       "name": "no source language: source_lang is left out (auto-detect), default politeness is not sent",
       "apiKey": "conformance-key",
       "rateLimit": false,
       "request": {
-        "targetLang": "fr_ch",
-        "segments": [{ "key": "a", "text": "Good morning", "html": false }]
+        "targetLang": "fr-CH",
+        "segments": [
+          {
+            "key": "a",
+            "text": "Good morning",
+            "html": false
+          }
+        ]
       },
-      "expected": { "translations": { "a": "[fr-CH] Good morning" } },
-      "expectedUpload": { "target_lang": "fr-CH", "source_lang": null, "politeness": null, "content_type": "text/html" },
-      "expectedStats": { "submitted": 1, "deleted": 1, "rateLimited": 0 }
+      "expected": {
+        "translations": {
+          "a": "[fr-CH] Good morning"
+        }
+      },
+      "expectedUpload": {
+        "target_lang": "fr-CH",
+        "source_lang": null,
+        "politeness": null,
+        "content_type": "text/html"
+      },
+      "expectedStats": {
+        "submitted": 1,
+        "deleted": 1,
+        "rateLimited": 0
+      }
     },
     {
       "name": "rejected key",
@@ -48,10 +96,24 @@
       "request": {
         "sourceLang": "en",
         "targetLang": "de-CH",
-        "segments": [{ "key": "a", "text": "Hello", "html": false }]
+        "segments": [
+          {
+            "key": "a",
+            "text": "Hello",
+            "html": false
+          }
+        ]
       },
-      "expected": { "error": { "code": "authentication_failure", "status": 401 } },
-      "expectedStats": { "submitted": 0, "deleted": 0 }
+      "expected": {
+        "error": {
+          "code": "authentication_failure",
+          "status": 401
+        }
+      },
+      "expectedStats": {
+        "submitted": 0,
+        "deleted": 0
+      }
     },
     {
       "name": "translation fails: error status, file still deleted",
@@ -60,10 +122,24 @@
       "request": {
         "sourceLang": "en",
         "targetLang": "it-CH",
-        "segments": [{ "key": "a", "text": "STAND-IN:error", "html": false }]
+        "segments": [
+          {
+            "key": "a",
+            "text": "STAND-IN:error",
+            "html": false
+          }
+        ]
       },
-      "expected": { "error": { "code": "translation_error", "status": null } },
-      "expectedStats": { "submitted": 1, "deleted": 1 }
+      "expected": {
+        "error": {
+          "code": "translation_error",
+          "status": null
+        }
+      },
+      "expectedStats": {
+        "submitted": 1,
+        "deleted": 1
+      }
     },
     {
       "name": "nothing to translate: no request at all",
@@ -72,10 +148,82 @@
       "request": {
         "sourceLang": "en",
         "targetLang": "de-DE",
-        "segments": [{ "key": "a", "text": "", "html": false }, { "key": "b", "text": " \n ", "html": true }]
+        "segments": [
+          {
+            "key": "a",
+            "text": "",
+            "html": false
+          },
+          {
+            "key": "b",
+            "text": " \n ",
+            "html": true
+          }
+        ]
       },
-      "expected": { "translations": { "a": "", "b": " \n " } },
-      "expectedStats": { "submitted": 0, "deleted": 0 }
+      "expected": {
+        "translations": {
+          "a": "",
+          "b": " \n "
+        }
+      },
+      "expectedStats": {
+        "submitted": 0,
+        "deleted": 0
+      }
+    },
+    {
+      "name": "a code Supertext doesn't offer (bare de): invalid_language_pair, nothing translated",
+      "apiKey": "conformance-key",
+      "rateLimit": false,
+      "request": {
+        "sourceLang": "en",
+        "targetLang": "de",
+        "segments": [
+          {
+            "key": "a",
+            "text": "Hello",
+            "html": false
+          }
+        ]
+      },
+      "expected": {
+        "error": {
+          "code": "invalid_language_pair",
+          "status": 404
+        }
+      },
+      "expectedStats": {
+        "submitted": 0,
+        "deleted": 0
+      }
+    },
+    {
+      "name": "politeness for a target without it (en-US): unsupported_feature",
+      "apiKey": "conformance-key",
+      "rateLimit": false,
+      "request": {
+        "sourceLang": "de",
+        "targetLang": "en-US",
+        "politeness": "more",
+        "segments": [
+          {
+            "key": "a",
+            "text": "Hallo",
+            "html": false
+          }
+        ]
+      },
+      "expected": {
+        "error": {
+          "code": "unsupported_feature",
+          "status": 400
+        }
+      },
+      "expectedStats": {
+        "submitted": 0,
+        "deleted": 0
+      }
     }
   ]
 }

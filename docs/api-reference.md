@@ -18,7 +18,7 @@ No Supertext account yet? Create one at https://www.supertext.com/person/en/acco
 
 ### `GET features`
 
-Cost-free; checks the key. `200` with a JSON body if the key works, `401`/`403` if not. The SDKs' `checkApiKey()` maps the answer to `ok`, `invalid`, `missing`, `unreachable` or `error` ([`spec/reporting.json`](../spec/reporting.json) → `apiKeyCheck`).
+Cost-free; checks the key and lists the languages. `200` → `{"supported_features": [{"source_lang": "en", "target_lang": "de-CH", "features": ["supports_politeness", "supports_glossary"]}, …]}` (optional `source_lang`/`target_lang` query parameters filter it); `401`/`403` if the key doesn't work. The pairs are the only codes `translate/ai/file` accepts. The SDKs' `checkApiKey()` maps the answer to `ok`, `invalid`, `missing`, `unreachable` or `error` ([`spec/reporting.json`](../spec/reporting.json) → `apiKeyCheck`).
 
 ### `POST translate/ai/file`
 
@@ -26,9 +26,9 @@ Cost-free; checks the key. `200` with a JSON body if the key works, `401`/`403` 
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `target_lang` | yes | Regional code (`de-CH`, `en-US`, `pt-BR`) |
-| `source_lang` | no | Bare language (`en`); omitted = detected |
-| `politeness` | no | `more` (formal) or `less` (informal); omitted = default |
+| `target_lang` | yes | A target of `GET features`, exactly: `de-CH`, `en-US`, `es`, `zh-Hans` |
+| `source_lang` | no | A source of `GET features` (bare: `en`); omitted = detected |
+| `politeness` | no | `more` (formal) or `less` (informal), only for targets with `supports_politeness`; omitted or `default` = default |
 | `file` | yes | The HTML document, part Content-Type exactly `text/html`, at most 1,000,000 characters |
 
 `200` → `{"file_id": "<id>"}`
@@ -49,8 +49,9 @@ Deletes the uploaded file and its translation. Files expire after 24 hours anywa
 
 | HTTP | Body (`error_code`) | Meaning |
 | --- | --- | --- |
-| 400 | `INVALID_LANGUAGE_PAIR` | Unsupported pair; usually a bare target (`de`) or a regional source (`en-US`) |
-| 404 | `INVALID_LANGUAGE_PAIR` | A language Supertext doesn't know at all (target `xx-YY`; seen on the live API, October 2026) |
+| 404 | `INVALID_LANGUAGE_PAIR` | A pair `GET features` doesn't list: a bare `de`, `es-ES`, `zh-CN`, a same-language pair, an unknown code (live API, October 2026; older answers were 400) |
+| 400 | `INVALID_LANGUAGE_PAIR` | The same, as some API versions answered it |
+| 400 | `FEATURE_ERROR` | The pair exists, but not with this option: `feature` names it (`politeness` for `en-US`, `rm`, `sq`, …) |
 | 400 | | Missing `Supertext-Auth-Key` prefix, malformed request |
 | 401, 403 | | Key missing, wrong or revoked; `403` also for a wrong header name (`Authentication`) |
 | 404 | | Unknown file id (expired or deleted) |
