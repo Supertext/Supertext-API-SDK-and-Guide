@@ -24,7 +24,9 @@ public static partial class LanguageCodes
 
     /// <summary>
     /// Canonical spelling: <c>" de_ch "</c> → <c>de-CH</c>, <c>zh-hant</c> → <c>zh-Hant</c>,
-    /// <c>es-419</c> stays, <c>DE</c> → <c>de</c>. Blank → empty string.
+    /// <c>es-419</c> stays, <c>DE</c> → <c>de</c>. Blank → empty string. Variants and extensions after a
+    /// script or region are dropped (<c>de_DE_formal</c> → <c>de-DE</c>, <c>en-US-x-twain</c> → <c>en-US</c>);
+    /// a code whose second subtag is neither a script nor a region is kept (<c>de-CHE</c>) and isn't valid.
     /// </summary>
     public static string Normalize(string? code)
     {
@@ -36,18 +38,40 @@ public static partial class LanguageCodes
         // Empty subtags are kept on purpose, so that "de-" stays invalid in IsValid.
         var parts = trimmed.Replace('_', '-').Split('-');
         parts[0] = parts[0].ToLowerInvariant();
+        var next = 1;
+        if (next < parts.Length && IsAsciiLetters(parts[next], 4))
+        {
+            parts[next] = TitleCase(parts[next]);
+            next++;
+        }
+        if (next < parts.Length && (IsAsciiLetters(parts[next], 2) || IsAsciiDigits(parts[next], 3)))
+        {
+            parts[next] = parts[next].ToUpperInvariant();
+            next++;
+        }
+        if (next > 1)
+        {
+            // Variants and extensions after a script or region are dropped (de_DE_formal → de-DE).
+            return string.Join('-', parts, 0, next);
+        }
         for (var i = 1; i < parts.Length; i++)
         {
             var part = parts[i];
             parts[i] = part.Length switch
             {
                 2 => part.ToUpperInvariant(),
-                4 => char.ToUpperInvariant(part[0]) + part[1..].ToLowerInvariant(),
+                4 => TitleCase(part),
                 _ => part,
             };
         }
         return string.Join('-', parts);
     }
+
+    private static string TitleCase(string part) => char.ToUpperInvariant(part[0]) + part[1..].ToLowerInvariant();
+
+    private static bool IsAsciiLetters(string part, int length) => part.Length == length && part.All(char.IsAsciiLetter);
+
+    private static bool IsAsciiDigits(string part, int length) => part.Length == length && part.All(char.IsAsciiDigit);
 
     /// <summary>
     /// Source code: the bare language of the matching override, else of <paramref name="code"/>

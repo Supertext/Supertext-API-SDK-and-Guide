@@ -62,6 +62,7 @@ String target = LanguageCodes.target(cmsLocale, overrides);   // "de" → "de-CH
 String source = LanguageCodes.source(cmsLocale, overrides);   // "no" → "nb"
 LanguageCodes.isValid("de_ch");                                // true
 LanguageCodes.normalize(" zh_hant_tw ");                       // "zh-Hant-TW"
+LanguageCodes.normalize("de_DE_formal");                       // "de-DE" (variants dropped; formal address: Politeness)
 ```
 
 ## Politeness

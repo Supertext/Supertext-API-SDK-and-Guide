@@ -51,6 +51,7 @@ var target = LanguageCodes.Target(cmsLocale, overrides);   // "de" → "de-CH"
 var source = LanguageCodes.Source(cmsLocale, overrides);   // "no" → "nb"
 LanguageCodes.IsValid("de_ch");                            // true
 LanguageCodes.Normalize("zh_hant_tw");                     // "zh-Hant-TW"
+LanguageCodes.Normalize("de_DE_formal");                   // "de-DE" (variants dropped; formal address: Politeness)
 ```
 
 ## Politeness

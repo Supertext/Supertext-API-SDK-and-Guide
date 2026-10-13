@@ -155,7 +155,7 @@ Both mistakes give HTTP 400 `INVALID_LANGUAGE_PAIR`. This was the most common bu
 
 How to turn a system's locale into Supertext codes (the SDKs' `LanguageCodes`, vectors in [`spec/language-codes.json`](../spec/language-codes.json)):
 
-1. **Normalize**: trim, `_` → `-`, language lower-case, 2-letter region upper-case, 4-letter script title-case: `de_ch` → `de-CH`, `zh_hant_tw` → `zh-Hant-TW`, `es-419` stays.
+1. **Normalize**: trim, `_` → `-`, language lower-case, 4-letter script title-case, 2-letter region upper-case: `de_ch` → `de-CH`, `zh_hant_tw` → `zh-Hant-TW`, `es-419` stays. Anything after the script or region is dropped: variants such as WordPress's `de_DE_formal` → `de-DE`, extensions and private use (`en-US-x-twain` → `en-US`, `zh-Hant-u-nu-hanidec` → `zh-Hant`). Formal or informal address is chosen with `politeness`, not with the code (see [4. Uploading a document](#4-uploading-a-document)). A code whose second part is neither a script nor a region (`de-CHE`, `de-formal`) is left as it is and isn't valid.
 2. **Source**: the language part only: `en-GB` → `en`.
 3. **Target**: keep a region if there is one. Add the default region to a bare code:
 

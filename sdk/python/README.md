@@ -74,6 +74,7 @@ LanguageCodes.source("no", overrides)               # "nb"
 LanguageCodes.target("pt")                          # "pt-PT" (LanguageCodes.DEFAULT_REGIONS)
 LanguageCodes.is_valid("de_ch")                     # True
 LanguageCodes.normalize(" zh_hant_tw ")             # "zh-Hant-TW"
+LanguageCodes.normalize("de_DE_formal")             # "de-DE" (variants dropped; formal address: politeness)
 ```
 
 ## Politeness

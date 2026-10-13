@@ -48,6 +48,7 @@ use Supertext\Sdk\LanguageCodes;
 
 LanguageCodes::target('de');      // "de-DE" (bare languages get a default region)
 LanguageCodes::target('de_ch');   // "de-CH"
+LanguageCodes::target('de_DE_formal'); // "de-DE" (variants dropped; formal address: politeness)
 LanguageCodes::source('en-GB');   // "en"
 LanguageCodes::isValid('german'); // false
 ```

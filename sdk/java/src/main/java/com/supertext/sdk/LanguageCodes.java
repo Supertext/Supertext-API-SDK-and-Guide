@@ -32,6 +32,8 @@ public final class LanguageCodes {
         DEFAULT_REGIONS = Collections.unmodifiableMap(map);
     }
 
+    private static final Pattern SCRIPT = Pattern.compile("[A-Za-z]{4}");
+    private static final Pattern REGION = Pattern.compile("[A-Za-z]{2}|[0-9]{3}");
     private static final Pattern VALID = Pattern.compile("^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|[0-9]{3}))?$");
 
     private LanguageCodes() {
@@ -40,6 +42,9 @@ public final class LanguageCodes {
     /**
      * Canonical BCP-47 spelling: trimmed, {@code _} → {@code -}, language lower case, two-letter
      * subtags upper case ({@code CH}), four-letter subtags title case ({@code Hant}), others unchanged ({@code 419}).
+     * Variants and extensions after a script or region are dropped ({@code de_DE_formal} → {@code de-DE},
+     * {@code en-US-x-twain} → {@code en-US}); a code whose second subtag is neither a script nor a region is
+     * kept ({@code de-CHE}) and isn't valid.
      */
     public static String normalize(String code) {
         if (code == null) {
@@ -51,18 +56,32 @@ public final class LanguageCodes {
         }
         String[] parts = trimmed.split("-", -1);
         StringBuilder out = new StringBuilder(parts[0].toLowerCase(Locale.ROOT));
+        int next = 1;
+        if (next < parts.length && SCRIPT.matcher(parts[next]).matches()) {
+            out.append('-').append(titleCase(parts[next++]));
+        }
+        if (next < parts.length && REGION.matcher(parts[next]).matches()) {
+            out.append('-').append(parts[next++].toUpperCase(Locale.ROOT));
+        }
+        if (next > 1) {
+            return out.toString(); // variants and extensions dropped
+        }
         for (int i = 1; i < parts.length; i++) {
             String part = parts[i];
             out.append('-');
             if (part.length() == 2) {
                 out.append(part.toUpperCase(Locale.ROOT));
             } else if (part.length() == 4) {
-                out.append(part.substring(0, 1).toUpperCase(Locale.ROOT)).append(part.substring(1).toLowerCase(Locale.ROOT));
+                out.append(titleCase(part));
             } else {
                 out.append(part);
             }
         }
         return out.toString();
+    }
+
+    private static String titleCase(String part) {
+        return part.substring(0, 1).toUpperCase(Locale.ROOT) + part.substring(1).toLowerCase(Locale.ROOT);
     }
 
     /** The bare source language ({@code en-US} → {@code en}); empty for empty (auto-detect). */

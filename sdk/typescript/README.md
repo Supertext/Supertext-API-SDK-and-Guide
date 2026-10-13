@@ -63,6 +63,7 @@ const overrides = { de: 'de-CH', no: 'nb-NO' } // CMS locale → Supertext code
 await client.translateTexts(texts, LanguageCodes.target(cmsLocale, overrides))
 
 LanguageCodes.normalize('zh_hant_tw') // 'zh-Hant-TW'
+LanguageCodes.normalize('de_DE_formal') // 'de-DE' (variants dropped; formal address: politeness)
 LanguageCodes.source('en-GB')         // 'en'
 LanguageCodes.target('pt')            // 'pt-PT'
 LanguageCodes.isValid('german')       // false (for validating a settings field)
