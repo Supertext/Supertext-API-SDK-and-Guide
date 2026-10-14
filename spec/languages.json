@@ -1,5 +1,5 @@
 {
-  "description": "Languages of the Supertext AI file translation API v1, from GET features on the live API (October 2026). Source codes are bare languages, target codes are what Supertext expects exactly: regional for German, English, French, Italian and Portuguese (de-CH, en-US, pt-BR), a script for Chinese and Serbian (zh-Hans, sr-Latn), a dialect for Swiss German (gsw-u-sd-chzh), bare for the others (es, nl, sl). There is no default region and no guessing: an integration maps its CMS languages to these codes (a setting per language). 'match': a CMS code that equals a supported code apart from case, '_' for '-' and surrounding spaces gives that code; anything else gives null (no match: the integration asks the administrator to map it). 'matchSource': exact match as for targets; else, if the code's first subtag (before '-' or '_') is a supported source, that source (source codes have no regions, so en-US as a source is en); else null. 'resolve': the code to send for a CMS code and the integration's mapping (keys compared like 'match'; a non-blank value is sent trimmed and otherwise unchanged, even if it isn't in the list, so a language Supertext adds later can be used before the SDK knows it); no mapping and no match: the error unsupported_language (nothing is sent). An empty source stays empty (auto-detect). 'politeness': whether the target supports politeness more/less; the API answers HTTP 400 FEATURE_ERROR (unsupported_feature) otherwise. Integrations hide the formal/informal choice for those targets; the SDK sends what it is given.",
+  "description": "Languages of the Supertext AI file translation API v1, from GET features on the live API (October 2026). Source codes are bare languages, target codes are what Supertext expects exactly: regional for German, English, French, Italian and Portuguese (de-CH, en-US, pt-BR), a script for Chinese and Serbian (zh-Hans, sr-Latn), a dialect for Swiss German (gsw-u-sd-chzh), bare for the others (es, nl, sl). There is no default region and no guessing: an integration maps its CMS languages to these codes (a setting per language). 'match': a CMS code that equals a supported code apart from case, '_' for '-' and surrounding spaces gives that code; anything else gives null (no match: the integration asks the administrator to map it). 'matchSource': exact match as for targets; else, if the code's first subtag (before '-' or '_') is a supported source, that source (source codes have no regions, so en-US as a source is en); else null. 'resolve': the code to send for a CMS code and the integration's mapping (keys compared like 'match'; a non-blank value is sent trimmed and otherwise unchanged, even if it isn't in the list, so a language Supertext adds later can be used before the SDK knows it); no mapping and no match: the error unsupported_language (nothing is sent). For the source, a mapped value is turned into its source form with matchSource (so one mapping serves both directions: {\"de\":\"de-CH\"} sends source de, target de-CH); a mapped value matchSource doesn't know is sent as it is. An empty source stays empty (auto-detect). 'politeness': whether the target supports politeness more/less; the API answers HTTP 400 FEATURE_ERROR (unsupported_feature) otherwise. Integrations hide the formal/informal choice for those targets; the SDK sends what it is given.",
   "sources": [
     {
       "code": "bg",
@@ -511,6 +511,34 @@
         "de": "fr"
       },
       "out": "fr"
+    },
+    {
+      "in": "de",
+      "mapping": {
+        "de": "de-CH"
+      },
+      "out": "de"
+    },
+    {
+      "in": "en",
+      "mapping": {
+        "en": "en-US"
+      },
+      "out": "en"
+    },
+    {
+      "in": "zh-CN",
+      "mapping": {
+        "zh-CN": "zh-Hans"
+      },
+      "out": "zh"
+    },
+    {
+      "in": "xx",
+      "mapping": {
+        "xx": " xx-YY "
+      },
+      "out": "xx-YY"
     }
   ],
   "supportsPoliteness": [

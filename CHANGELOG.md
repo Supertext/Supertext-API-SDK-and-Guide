@@ -4,6 +4,12 @@ All SDKs in this repository share one version. Format: one section per release, 
 
 ## Unreleased
 
+## 0.2.1 — 2026-10-14
+
+### Fixed
+
+- `Languages.source(code, mapping)`: a mapped value is sent in its source form, so one mapping serves both directions. With `{"en": "en-US"}` (needed because `en` isn't a target), English as the source language was sent as `en-US` and rejected; it is now `en`. A mapped value the list doesn't know is still sent as it is.
+
 ## 0.2.0 — 2026-10-13
 
 Breaking changes for integrations: the namespace and the language codes.

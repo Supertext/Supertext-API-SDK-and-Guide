@@ -179,8 +179,13 @@ public final class Languages {
         if (code == null || code.isBlank()) {
             return "";
         }
-        String result = mapped(code, mapping);
-        if (result == null) {
+        // One mapping serves both directions: a mapped target code is sent in its source form (de-CH -> de).
+        String fromMapping = mapped(code, mapping);
+        String result;
+        if (fromMapping != null) {
+            String asSource = matchSource(fromMapping);
+            result = asSource != null ? asSource : fromMapping;
+        } else {
             result = matchSource(code);
         }
         if (result == null) {

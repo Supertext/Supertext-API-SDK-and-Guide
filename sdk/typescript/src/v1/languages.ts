@@ -112,10 +112,15 @@ export function target(code: string, mapping?: LanguageMapping): string {
   return result
 }
 
-/** The source code to send: the mapping's value, else `matchSource`, else `unsupported_language`. `''` stays `''` (auto-detect). */
+/**
+ * The source code to send: the mapping's value in its source form (`de-CH` → `de`; an unknown value as it is),
+ * else `matchSource`, else `unsupported_language`. `''` stays `''` (auto-detect).
+ */
 export function source(code: string, mapping?: LanguageMapping): string {
   if (code.trim() === '') return ''
-  const result = mapped(code, mapping) ?? matchSource(code)
+  // One mapping serves both directions: a mapped target code is sent in its source form (de-CH → de).
+  const fromMapping = mapped(code, mapping)
+  const result = fromMapping !== null ? (matchSource(fromMapping) ?? fromMapping) : matchSource(code)
   if (result === null) throw new SupertextError('unsupported_language', { sourceLang: code.trim() })
   return result
 }

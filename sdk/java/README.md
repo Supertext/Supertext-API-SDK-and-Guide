@@ -10,11 +10,11 @@ Java 11+, no runtime dependencies (uses `java.net.http.HttpClient`). For the pro
 <dependency>
   <groupId>com.supertext</groupId>
   <artifactId>supertext-sdk</artifactId>
-  <version>0.2.0</version>
+  <version>0.2.1</version>
 </dependency>
 ```
 
-Gradle: `implementation("com.supertext:supertext-sdk:0.2.0")`.
+Gradle: `implementation("com.supertext:supertext-sdk:0.2.1")`.
 
 Everything that talks to the API is versioned: API v1 lives in the package `com.supertext.sdk.v1`. A later API version gets `com.supertext.sdk.v2` next to it, so an integration can move at its own pace. Version-neutral parts stay in `com.supertext.sdk`: `SdkInfo.VERSION` (this SDK's version) and the HTTP layer (`Transport`, `JdkHttpTransport`).
 

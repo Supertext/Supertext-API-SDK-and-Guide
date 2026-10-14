@@ -164,7 +164,7 @@ Anything else is HTTP 404 `INVALID_LANGUAGE_PAIR` (bare `de`, `es-ES`, `sl-SI`, 
 
 How the SDKs resolve a CMS language (`Languages.target(code, mapping)` / `Languages.source(code, mapping)`):
 
-1. **The mapping**, if it has a non-blank entry for the code (keys compared ignoring case and `_`/`-`). Its value is sent as it is, so a language Supertext adds later works before the SDK lists it.
+1. **The mapping**, if it has a non-blank entry for the code (keys compared ignoring case and `_`/`-`). Its value is sent as it is, so a language Supertext adds later works before the SDK lists it; for the source, a known value is sent in its source form (`{"en": "en-US"}` sends source `en`, target `en-US`), so one mapping serves both directions.
 2. **An exact match**: a CMS code that equals a Supertext code apart from case and `_`/`-` (`de_CH` → `de-CH`, `ES` → `es`). Sources also match by their first part (`en-US` as a source is `en`; sources have no regions).
 3. **Otherwise the error `unsupported_language`**, and nothing is sent. Tell the editor which language isn't mapped and the administrator where to map it.
 

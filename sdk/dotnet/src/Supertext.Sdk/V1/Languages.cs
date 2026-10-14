@@ -155,7 +155,13 @@ public static class Languages
         {
             return string.Empty;
         }
-        return Mapped(code, mapping) ?? MatchSource(code) ?? throw Unsupported(sourceLang: trimmed);
+        // One mapping serves both directions: a mapped target code is sent in its source form (de-CH → de).
+        var fromMapping = Mapped(code, mapping);
+        if (fromMapping is not null)
+        {
+            return MatchSource(fromMapping) ?? fromMapping;
+        }
+        return MatchSource(code) ?? throw Unsupported(sourceLang: trimmed);
     }
 
     /// <summary>Whether a supported target offers formal/informal; null for a code that isn't in the list.</summary>
