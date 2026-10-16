@@ -6,6 +6,6 @@ namespace Supertext.Sdk;
 /// </summary>
 public static class SdkInfo
 {
-    /// <summary>This SDK's version (sent in version reports). Same number as <c>&lt;Version&gt;</c> in Supertext.Sdk.csproj and CHANGELOG.md.</summary>
-    public const string Version = "0.2.1";
+    /// <summary>This SDK's version (plugins pass it to Supertext Plugin Health as <c>sdkVersion</c>). Same number as <c>&lt;Version&gt;</c> in Supertext.Sdk.csproj and CHANGELOG.md.</summary>
+    public const string Version = "0.3.0";
 }

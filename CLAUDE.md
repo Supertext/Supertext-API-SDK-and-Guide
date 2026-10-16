@@ -26,7 +26,7 @@ Wherever the docs or a README mention the API key, show both links: "No Supertex
 - **Languages:** only the codes `GET features` lists (`spec/languages.json`): 28 bare sources; 37 targets, regional only for de/en/fr/it/pt (`de-CH`, `en-US`), script for zh/sr (`zh-Hans`, `sr-Latn`), `gsw-u-sd-chzh`/`chbe`, bare for the rest (`es`, `nl`, `sl`). Anything else: HTTP 404 `INVALID_LANGUAGE_PAIR`. Politeness on a target without it (en, gsw, rm, sq, sr): HTTP 400 `FEATURE_ERROR`. **No guessing:** no default regions; the SDK resolves a CMS code by the plugin's mapping, else an exact match (case, `_`/`-`), else `unsupported_language`. The client sends codes as given.
 - **Versioned API:** everything API-bound is in the `v1` namespace of each SDK; a later API version gets `v2` next to it (and `spec/v2/`).
 
-**Commando Center:** version reports, the automatic API key check and the ping endpoint follow the center's *Report protocol* (Commando-Center-Supertext-Translation → `docs/DEVELOPER.md`); `spec/commando/` is a copy of its `spec/`, `spec/reporting.json` pins down the SDKs' reporter. Change it there and here together.
+**Commando Center:** the SDK only provides the API key check (`checkApiKey()`, `apiKeyFingerprint`, `ApiKeyCheck`; `spec/api-key-check.json`) and `SDK_VERSION`. Version reports and the ping endpoint live in **Supertext Plugin Health** (Commando-Center-Supertext-Translation → `plugin-health/`), which calls exactly these: never rename them or the check's fields (`status`, `checkedAt`, `httpStatus`, `errorCode`, `fingerprint`). There is no `spec/commando/` here any more.
 
 When a plugin learns something new about the API, add it here, to the guide, and (if the SDKs should handle it) to the spec and all SDKs.
 

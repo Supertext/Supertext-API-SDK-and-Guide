@@ -181,8 +181,8 @@ public final class SupertextClient {
     }
 
     /**
-     * The automatic API key check (spec/reporting.json → apiKeyCheck): {@code GET features} with a
-     * timeout of at most {@link Reporting#KEY_CHECK_TIMEOUT} and the usual 429 retries. Never throws:
+     * The automatic API key check (spec/api-key-check.json): {@code GET features} with a
+     * timeout of at most {@link ApiKeyCheck#TIMEOUT} and the usual 429 retries. Never throws:
      * 2xx is {@code ok}, 401/403 {@code invalid}, 5xx or no answer {@code unreachable}, anything else
      * {@code error}. A blank key gives {@code missing} without a request. If the thread is interrupted,
      * the check is {@code unreachable} and the interrupt flag stays set.
@@ -193,7 +193,7 @@ public final class SupertextClient {
         if (fingerprint.isEmpty()) {
             return new ApiKeyCheck(ApiKeyCheck.Status.MISSING, checkedAt, null, null, fingerprint);
         }
-        Duration checkTimeout = requestTimeout.compareTo(Reporting.KEY_CHECK_TIMEOUT) < 0 ? requestTimeout : Reporting.KEY_CHECK_TIMEOUT;
+        Duration checkTimeout = requestTimeout.compareTo(ApiKeyCheck.TIMEOUT) < 0 ? requestTimeout : ApiKeyCheck.TIMEOUT;
         try {
             Transport.Response response = request("GET", "features", null, null, checkTimeout);
             return new ApiKeyCheck(ApiKeyCheck.Status.OK, checkedAt, response.getStatus(), null, fingerprint);

@@ -48,20 +48,6 @@ public sealed class SupertextClientOptions
 
     /// <summary>Clock for the polling timeout and <see cref="ApiKeyCheck.CheckedAt"/>. Default <see cref="TimeProvider.System"/>; replace it in tests.</summary>
     public TimeProvider? TimeProvider { get; init; }
-
-    /// <summary>A copy with another clock (the reporter's, for the key check).</summary>
-    internal SupertextClientOptions WithTimeProvider(TimeProvider timeProvider) => new()
-    {
-        BaseUrl = BaseUrl,
-        PollInterval = PollInterval,
-        Timeout = Timeout,
-        RequestTimeout = RequestTimeout,
-        MaxRetries = MaxRetries,
-        UserAgent = UserAgent,
-        HttpClient = HttpClient,
-        Sleep = Sleep,
-        TimeProvider = timeProvider,
-    };
 }
 
 /// <summary>One language pair from <c>GET features</c> (<see cref="SupertextClient.GetFeaturesAsync"/>).</summary>

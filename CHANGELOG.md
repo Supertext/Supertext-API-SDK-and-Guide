@@ -4,6 +4,19 @@ All SDKs in this repository share one version. Format: one section per release, 
 
 ## Unreleased
 
+## 0.3.0 — 2026-10-16
+
+Breaking change for plugins that use the version reports: the Commando Center support from 0.1.0 moved out of the SDK.
+
+### Removed
+
+- **Version reports, the reporting setting and the ping endpoint** (`InstallationReporter`, `ReporterState`/`reporterState`, `ReporterResult`, `ReporterOptions`, `ReportEvent`, `NameVersion`, `reportsEnabled`, `pingResponse`/`PingResponse`, the report URL, timeout and backoff constants) in all five SDKs, with `spec/commando/` and the reporter parts of `spec/reporting.json`. They are now **Supertext Plugin Health**, which lives next to the center in the Commando Center repository (`Supertext/Commando-Center-Supertext-Translation`, `plugin-health/`), so the protocol, the center and the client change together. Plugins vendor Plugin Health like the SDK and pass the SDK's key check in as its key checker: `checkApiKey()` plus `apiKeyFingerprint()` (TypeScript; PHP `Client::checkApiKey()` and `Protocol::apiKeyFingerprint()`, Python `check_api_key()` and `api_key_fingerprint()`, .NET `CheckApiKeyAsync()` and `ApiKeyCheck.FingerprintOf()`, Java `checkApiKey()` and `ApiKeyCheck.fingerprint()`), and the SDK version constant as `sdkVersion`. The reporter state plugins have stored stays valid: Plugin Health reads the same JSON, so no new `installed` report.
+
+### Changed
+
+- The API key check stays in the SDK, unchanged (`checkApiKey()`, `ApiKeyCheck` with `status`, `checkedAt`, `httpStatus`, `errorCode`, `fingerprint`, the fingerprint function, `SDK_VERSION`). Its vectors moved from `spec/reporting.json` to `spec/api-key-check.json`.
+- .NET: the key check's timeout is `ApiKeyCheck.Timeout` (was `Reporting.KeyCheckTimeout`); Java: `ApiKeyCheck.TIMEOUT` (was `Reporting.KEY_CHECK_TIMEOUT`).
+
 ## 0.2.1 — 2026-10-14
 
 ### Fixed

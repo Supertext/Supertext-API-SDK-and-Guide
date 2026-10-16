@@ -3,6 +3,7 @@ package com.supertext.sdk.v1;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -13,7 +14,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * The result of the automatic API key check (spec/reporting.json → apiKeyCheck), from
+ * The result of the automatic API key check (spec/api-key-check.json), from
  * {@link SupertextClient#checkApiKey()}. Plugins run it on every settings save, when a key from the
  * environment changed and on "Test connection", and show it to administrators. Immutable.
  *
@@ -55,6 +56,9 @@ public final class ApiKeyCheck {
             return null;
         }
     }
+
+    /** Longest timeout of the check (the client's request timeout, if shorter). */
+    public static final Duration TIMEOUT = Duration.ofSeconds(10);
 
     private static final Pattern PASTED_PREFIX = Pattern.compile("^supertext-auth-key(\\s+|$)", Pattern.CASE_INSENSITIVE);
     private static final DateTimeFormatter ISO_SECONDS = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(ZoneOffset.UTC);

@@ -34,6 +34,9 @@ public static class ApiKeyCheckStatus
 /// <param name="Fingerprint">SHA-256 of the key (lower-case hex), to notice a changed key. Kept locally, never sent. Empty for a blank key.</param>
 public sealed record ApiKeyCheck(string Status, string CheckedAt, int? HttpStatus, string? ErrorCode, string Fingerprint)
 {
+    /// <summary>Longest timeout of the check (the client's request timeout, if shorter).</summary>
+    public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+
     /// <summary>SHA-256 (lower-case hex) of the key as <see cref="SupertextClient.AuthHeader"/> would send it; empty for a blank key.</summary>
     public static string FingerprintOf(string? apiKey)
     {
@@ -54,7 +57,7 @@ public sealed record ApiKeyCheck(string Status, string CheckedAt, int? HttpStatu
     public static string IsoSeconds(DateTimeOffset time) =>
         time.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
-    /// <summary>The check for an exception thrown by a request (spec/reporting.json → apiKeyCheck).</summary>
+    /// <summary>The check for an exception thrown by a request (spec/api-key-check.json).</summary>
     internal static ApiKeyCheck FromException(Exception error, string checkedAt, string fingerprint)
     {
         if (error is not SupertextException e)

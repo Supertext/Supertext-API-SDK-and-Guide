@@ -18,7 +18,7 @@ No Supertext account yet? Create one at https://www.supertext.com/person/en/acco
 
 ### `GET features`
 
-Cost-free; checks the key and lists the languages. `200` → `{"supported_features": [{"source_lang": "en", "target_lang": "de-CH", "features": ["supports_politeness", "supports_glossary"]}, …]}` (optional `source_lang`/`target_lang` query parameters filter it); `401`/`403` if the key doesn't work. The pairs are the only codes `translate/ai/file` accepts. The SDKs' `checkApiKey()` maps the answer to `ok`, `invalid`, `missing`, `unreachable` or `error` ([`spec/reporting.json`](../spec/reporting.json) → `apiKeyCheck`).
+Cost-free; checks the key and lists the languages. `200` → `{"supported_features": [{"source_lang": "en", "target_lang": "de-CH", "features": ["supports_politeness", "supports_glossary"]}, …]}` (optional `source_lang`/`target_lang` query parameters filter it); `401`/`403` if the key doesn't work. The pairs are the only codes `translate/ai/file` accepts. The SDKs' `checkApiKey()` maps the answer to `ok`, `invalid`, `missing`, `unreachable` or `error` ([`spec/api-key-check.json`](../spec/api-key-check.json)).
 
 ### `POST translate/ai/file`
 
@@ -64,4 +64,4 @@ How the SDKs map these to error codes: [`spec/errors.json`](../spec/errors.json)
 
 ## Commando Center (version reports)
 
-Not part of the Supertext API: plugins report their versions to `POST https://commandocenter-production.up.railway.app/api/v1/report` (JSON, schema in [`spec/commando/report-v1.schema.json`](../spec/commando/report-v1.schema.json); `202` = stored). The protocol, including the plugin's ping endpoint, is in [Commando-Center-Supertext-Translation](https://github.com/Supertext/Commando-Center-Supertext-Translation) → `docs/DEVELOPER.md` → *Report protocol*.
+Not part of the Supertext API and not part of the SDKs: plugins report their versions with Supertext Plugin Health. The protocol (report schema, the plugin's ping endpoint) and Plugin Health are in [Commando-Center-Supertext-Translation](https://github.com/Supertext/Commando-Center-Supertext-Translation) (`docs/DEVELOPER.md` → *Report protocol*, `plugin-health/`).

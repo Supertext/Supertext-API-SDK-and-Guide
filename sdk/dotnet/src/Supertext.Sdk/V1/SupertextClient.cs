@@ -147,8 +147,8 @@ public sealed partial class SupertextClient
     }
 
     /// <summary>
-    /// The automatic API key check for settings and status screens (spec/reporting.json → apiKeyCheck):
-    /// <c>GET features</c> with a timeout of at most <see cref="Reporting.KeyCheckTimeout"/> and the usual 429 retries.
+    /// The automatic API key check for settings and status screens (spec/api-key-check.json):
+    /// <c>GET features</c> with a timeout of at most <see cref="ApiKeyCheck.Timeout"/> and the usual 429 retries.
     /// Never throws (except when <paramref name="cancellationToken"/> is cancelled): 2xx is
     /// <see cref="ApiKeyCheckStatus.Ok"/>, 401/403 <see cref="ApiKeyCheckStatus.Invalid"/>, 5xx or no answer
     /// <see cref="ApiKeyCheckStatus.Unreachable"/>, anything else <see cref="ApiKeyCheckStatus.Error"/>.
@@ -164,7 +164,7 @@ public sealed partial class SupertextClient
         }
         try
         {
-            var timeout = options.RequestTimeout < Reporting.KeyCheckTimeout ? options.RequestTimeout : Reporting.KeyCheckTimeout;
+            var timeout = options.RequestTimeout < ApiKeyCheck.Timeout ? options.RequestTimeout : ApiKeyCheck.Timeout;
             var response = await SendAsync(HttpMethod.Get, "features", null, cancellationToken, timeout).ConfigureAwait(false);
             return new ApiKeyCheck(ApiKeyCheckStatus.Ok, checkedAt, response.Status, null, fingerprint);
         }

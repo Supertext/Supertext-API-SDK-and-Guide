@@ -1,0 +1,156 @@
+{
+  "description": "The SDK's API key check, checkApiKey() on the client (the reporting that uses it, version reports to the Supertext Commando Center, is Supertext Plugin Health: Commando-Center-Supertext-Translation → plugin-health/). 'fingerprint': SHA-256 (lower-case hex) of the key as authHeader() would send it (trimmed, a pasted 'Supertext-Auth-Key ' prefix removed); '' for a blank key. 'apiKeyCheck': how the answer to GET features (timeout keyCheckTimeoutSeconds, the usual 429 retries) becomes a check: 2xx ok, 401/403 invalid, 5xx or no HTTP answer unreachable, anything else error; httpStatus is the status (null without an answer), errorCode the body's JSON error_code (null if none, at most 100 characters). A blank key gives missing without a request. Every check also carries checkedAt (UTC ISO 8601 without fractions, '2026-10-13T08:00:00Z') and the key's fingerprint. 'answer' is the answer to GET features (status and body, or transportError); 'requests' is the number of requests made (default 1). The field names (status, checkedAt, httpStatus, errorCode, fingerprint) are what Plugin Health stores and must not change.",
+  "defaults": {
+    "keyCheckTimeoutSeconds": 10
+  },
+  "fingerprint": [
+    {
+      "apiKey": "k1",
+      "out": "6ab9f1eb8f7d3388f4f9d586f66e99fd54080df2c446f0e58668b09c08a16dd0"
+    },
+    {
+      "apiKey": "  Supertext-Auth-Key k1 ",
+      "out": "6ab9f1eb8f7d3388f4f9d586f66e99fd54080df2c446f0e58668b09c08a16dd0"
+    },
+    {
+      "apiKey": "supertext-auth-key k1",
+      "out": "6ab9f1eb8f7d3388f4f9d586f66e99fd54080df2c446f0e58668b09c08a16dd0"
+    },
+    {
+      "apiKey": "abc-123_ÄÖ",
+      "out": "ba6dcecb2588a8b7cf332380d1c43779285e51c5b78630520ce368660e8bc0ec"
+    },
+    {
+      "apiKey": "",
+      "out": ""
+    },
+    {
+      "apiKey": "   ",
+      "out": ""
+    },
+    {
+      "apiKey": "Supertext-Auth-Key ",
+      "out": ""
+    }
+  ],
+  "apiKeyCheck": [
+    {
+      "apiKey": "k1",
+      "answer": {
+        "status": 200,
+        "body": "{\"features\":[]}"
+      },
+      "status": "ok",
+      "httpStatus": 200,
+      "errorCode": null
+    },
+    {
+      "apiKey": "k1",
+      "answer": {
+        "status": 204,
+        "body": ""
+      },
+      "status": "ok",
+      "httpStatus": 204,
+      "errorCode": null
+    },
+    {
+      "apiKey": "k1",
+      "answer": {
+        "status": 401,
+        "body": ""
+      },
+      "status": "invalid",
+      "httpStatus": 401,
+      "errorCode": null
+    },
+    {
+      "apiKey": "k1",
+      "answer": {
+        "status": 403,
+        "body": "{\"error_code\":\"INVALID_API_KEY\"}"
+      },
+      "status": "invalid",
+      "httpStatus": 403,
+      "errorCode": "INVALID_API_KEY"
+    },
+    {
+      "apiKey": "k1",
+      "answer": {
+        "status": 500,
+        "body": "<h1>Error</h1>"
+      },
+      "status": "unreachable",
+      "httpStatus": 500,
+      "errorCode": null
+    },
+    {
+      "apiKey": "k1",
+      "answer": {
+        "status": 503,
+        "body": ""
+      },
+      "status": "unreachable",
+      "httpStatus": 503,
+      "errorCode": null
+    },
+    {
+      "apiKey": "k1",
+      "answer": {
+        "transportError": true
+      },
+      "status": "unreachable",
+      "httpStatus": null,
+      "errorCode": null
+    },
+    {
+      "apiKey": "k1",
+      "answer": {
+        "status": 429,
+        "body": "{\"error_code\":\"RATE_LIMIT_EXCEEDED\"}"
+      },
+      "status": "error",
+      "httpStatus": 429,
+      "errorCode": "RATE_LIMIT_EXCEEDED",
+      "requests": 5
+    },
+    {
+      "apiKey": "k1",
+      "answer": {
+        "status": 404,
+        "body": "{\"error_code\":\"NOT_FOUND\"}"
+      },
+      "status": "error",
+      "httpStatus": 404,
+      "errorCode": "NOT_FOUND"
+    },
+    {
+      "apiKey": "k1",
+      "answer": {
+        "status": 418,
+        "body": ""
+      },
+      "status": "error",
+      "httpStatus": 418,
+      "errorCode": null
+    },
+    {
+      "apiKey": "k1",
+      "answer": {
+        "status": 400,
+        "body": "{\"error_code\":\"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\"}"
+      },
+      "status": "error",
+      "httpStatus": 400,
+      "errorCode": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    },
+    {
+      "apiKey": "",
+      "answer": null,
+      "status": "missing",
+      "httpStatus": null,
+      "errorCode": null,
+      "requests": 0
+    }
+  ]
+}

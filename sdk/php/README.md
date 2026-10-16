@@ -156,66 +156,15 @@ $client = new Client($apiKey, transport: new SymfonyHttpTransport($httpClient));
 
 For Guzzle, send with `'http_errors' => false` and `'timeout' => $request->timeout`, and build the `HttpResponse` from the status, `(string) $response->getBody()` and the headers the same way.
 
-## API key check, version reports and ping
+## API key check
 
-Every Supertext plugin checks its API key automatically and, unless switched off, tells the Supertext Commando Center which plugin, system and PHP versions are installed. The protocol and its test vectors are in `spec/reporting.json`.
-
-### API key check
+Every Supertext plugin checks its API key automatically (test vectors: `spec/api-key-check.json`).
 
 `$client->checkApiKey()` sends the cost-free `GET features` (10 s timeout, or the request timeout if shorter; the usual 429 retries) and never throws. It returns an `ApiKeyCheck` with `status` (`ApiKeyCheck::OK` for 2xx, `INVALID` for 401/403, `MISSING` for a blank key without a request, `UNREACHABLE` without an answer or for 5xx, `ERROR` otherwise), `checkedAt` (`2026-10-13T08:00:00Z`), `httpStatus`, `errorCode` (the answer's `error_code`) and `fingerprint`. Show it on the settings page; for `invalid` and `missing`, add the account and API key links: No Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (supertext.com → Integrations → API; requires the Admin role).
 
 `Protocol::apiKeyFingerprint($key)` (`Supertext\Sdk\V1\Protocol`, next to `authHeader()` and `retryDelayMs()`) is the SHA-256 of the key as it is sent (prefix stripped), `''` for a blank key. It is kept locally to notice a changed key and is never sent.
 
-### Version reports
-
-`InstallationReporter` runs the check at the right moments and reports to the center. It keeps no state of its own: load the stored `ReporterState`, pass it in, and store `$result->state` again (as JSON, unchanged). No method throws; a failed report is tried again after an hour.
-
-```php
-use Supertext\Sdk\V1\InstallationReporter;
-use Supertext\Sdk\V1\ReporterState;
-
-$reporter = new InstallationReporter(
-    enabled: InstallationReporter::reportsEnabled($settings->versionReports), // null = not set: on
-    siteUrl: 'https://cms.example.ch',
-    pluginName: 'MyCms-Supertext-Translation',  // the GitHub repository name
-    pluginVersion: '1.2.0',                      // from the official version source
-    systemName: 'MyCms',
-    systemVersion: $cmsVersion,
-    callbackUrl: 'https://cms.example.ch/supertext/ping', // null for hosted apps
-    transport: $myTransport,                     // optional: your own HTTP client, used for the check and the report
-);
-
-$state = ReporterState::from($storage->get('supertext_reporter')); // JSON string, array or null
-$result = $reporter->afterSettingsSaved($state, $apiKey);
-$storage->set('supertext_reporter', json_encode($result->state));
-$result->check; // the latest ApiKeyCheck, for the settings page
-```
-
-| Method | When | What it does |
-| --- | --- | --- |
-| `afterSettingsSaved($state, $apiKey)` | settings saved | checks the key; reports `installed` (first time) or `settings_saved` |
-| `onRequest($state, $apiKey)` | back-end requests that run the plugin | checks the key only if it changed; reports `installed`, `upgraded` (versions changed) or `api_key_check` (status changed), else nothing |
-| `authenticationFailed($state, $apiKey, $httpStatus = 401)` | a translation got 401/403 | marks the key invalid without a request, then like `onRequest` |
-| `testConnection($state, $apiKey)` | "Test connection" button | checks the key, then like `onRequest` |
-| `reportCheck($state)` | check commands, tests | sends a `check` report now, even after a recent failure |
-
-The result has `state` (store it), `check`, `event` (what was reported or tried; `null` if nothing was due) and `sent` (the center answered 2xx). `buildReport($event, $state)` and `versions()` show what would be sent. The report contains the site URL, the plugin, system, runtime (default `PHP` and `PHP_VERSION`) and SDK versions (`Supertext\Sdk\Supertext::SDK_VERSION`), whether a key is configured and the check's status, never the key. It is posted as JSON with a 3 s timeout through the same `HttpTransport` the client uses.
-
-Reports are on by default. `SUPERTEXT_VERSION_REPORTS` (`0`/`false`/`off`/`no` or `1`/`true`/`on`/`yes`) wins over the plugin's setting in `reportsEnabled()`. The report URL is the `reportUrl` argument, else `SUPERTEXT_REPORT_URL`, else `InstallationReporter::DEFAULT_REPORT_URL`. `apiBaseUrl`, `sleep` and `now` are injectable for tests.
-
-### Ping endpoint
-
-The center confirms a reported `callbackUrl` with `GET <callback>?challenge=<c>` (no login). Answer it with:
-
-```php
-$challenge = is_string($_GET['challenge'] ?? null) ? $_GET['challenge'] : null;
-$ping = InstallationReporter::pingResponse($challenge, 'MyCms-Supertext-Translation', $reportsEnabled);
-http_response_code($ping->status);   // 200, 400 for a bad challenge, 404 while reports are off
-foreach ($ping->headers as $name => $value) {
-    header($name . ': ' . $value);   // Content-Type: application/json, Cache-Control: no-store
-}
-echo $ping->body;                    // {"ok":true,"plugin":"…","challenge":"…"}
-```
+Version reports to the Supertext Commando Center and its ping endpoint are [Supertext Plugin Health](https://github.com/Supertext/Commando-Center-Supertext-Translation/tree/main/plugin-health), not this SDK. Its key checker is `fn ($key) => (new Client($key))->checkApiKey()` with `Protocol::apiKeyFingerprint` as the fingerprint, and its `sdkVersion` is `Supertext\Sdk\Supertext::SDK_VERSION`.
 
 ## Testing against the stand-in
 
