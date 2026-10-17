@@ -4,7 +4,7 @@ Every SDK in this repository loads these files in its tests and must pass every 
 
 | File | What it pins down |
 | --- | --- |
-| [`languages.json`](languages.json) | The API's source and target languages (from the live `GET features`), matching CMS codes exactly, the integration's mapping, `unsupported_language`, which targets offer politeness |
+| [`languages.json`](languages.json) | The API's source and target languages (from the live `GET features`), matching CMS codes exactly, the defaults (`defaultTargets`, `defaultTarget`, `suggestTarget`), the combo box order (`targetOptions`), the integration's mapping, `unsupported_language`, which targets offer politeness |
 | [`auth-header.json`](auth-header.json) | The `Authorization` header from a pasted key, prefix stripping, blank keys |
 | [`retry-delay.json`](retry-delay.json) | Waits before retrying HTTP 429 (`Retry-After`, backoff, jitter, cap) |
 | [`errors.json`](errors.json) | HTTP answers and file statuses → error codes, `detail`, `apiErrorCode`, language pair |

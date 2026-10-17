@@ -68,7 +68,7 @@ The fingerprint (`apiKeyFingerprint(key)`, SHA-256) stays local, to notice a cha
 
 ## Languages
 
-The client sends the language codes it is given (trimmed). Supertext accepts exactly the codes `GET features` lists: bare sources (`en`), and targets in one exact form each: `de-CH`, `en-US`, `pt-BR`, but bare `es`, `nl`, `sl`, and `zh-Hans`, `sr-Latn`, `gsw-u-sd-chzh` ([guide, section 6](../../docs/integration-guide.md#6-language-codes)). There are no default regions: let administrators map each CMS language to a Supertext code, and resolve it with `Languages`:
+The client sends the language codes it is given (trimmed). Supertext accepts exactly the codes `GET features` lists: bare sources (`en`), and targets in one exact form each: `de-CH`, `en-US`, `pt-BR`, but bare `es`, `nl`, `sl`, and `zh-Hans`, `sr-Latn`, `gsw-u-sd-chzh` ([guide, section 6](../../docs/integration-guide.md#6-language-codes)). Let administrators map each CMS language to a Supertext code (a combo box per language from `Languages.targetOptions()`, `Languages.suggestTarget(code)` preselected), and resolve it with `Languages`. A language nobody mapped uses its default where one is obvious (`de` → `de-DE`, `en` → `en-US`, `zh` → `zh-Hans`, `zh-TW` → `zh-Hant`, `es-ES` → `es`; `Languages.DEFAULT_TARGETS`); anything else (`en-IE`, `gsw`) is `unsupported_language`:
 
 ```ts
 import { Languages } from 'supertext-sdk/v1'
@@ -79,13 +79,18 @@ await client.translateTexts(texts, Languages.target(cmsLocale, mapping), { sourc
 Languages.target('de', mapping) // 'de-CH' (mapping)
 Languages.target('de_ch')       // 'de-CH' (exact match apart from case and _/-)
 Languages.target('es')          // 'es'
-Languages.target('de')          // throws SupertextError unsupported_language: map it
+Languages.target('de')          // 'de-DE' (default)
+Languages.target('en-IE')       // throws SupertextError unsupported_language: map it
+Languages.defaultTarget('es-ES') // 'es' (null when there is no default or an exact match)
+Languages.suggestTarget('de_ch') // 'de-CH' (exact match, else the default, else null): preselect it
 Languages.source('en-US')       // 'en' (sources are bare)
 Languages.matchTarget('zh-CN')  // null (Supertext has zh-Hans / zh-Hant)
 Languages.supportsPoliteness('en-US') // false: hide formal/informal for it
-Languages.TARGETS               // [{ code: 'bg', name: 'Bulgarian', politeness: true }, …] for a select box
+Languages.targetOptions()       // [{ code: 'sq', name: 'Albanian', politeness: false }, …] sorted by name, for the combo box
 await client.getFeatures()      // the live list: [{ sourceLang, targetLang, features }]
 ```
+
+In the combo box, show each name in the administrator's language where you can (`new Intl.DisplayNames([uiLocale], { type: 'language' }).of(code)`) and the code next to it.
 
 ## Politeness
 
@@ -100,7 +105,7 @@ Every failure is a `SupertextError` with a stable `code` (also as constants: `Er
 | `missing_api_key` | No API key is configured (nothing was sent). Show where to enter it and the account/API key links above. |
 | `authentication_failure` | The API key was rejected (HTTP 401/403). Check or regenerate it (links above). |
 | `invalid_language_pair` | Supertext doesn't support this language pair (HTTP 404); check the language mapping. |
-| `unsupported_language` | The language has no Supertext code (no mapping, no exact match; nothing was sent). Map it in the language settings. |
+| `unsupported_language` | The language has no Supertext code (no mapping, no exact match, no default; nothing was sent). Map it in the language settings. |
 | `unsupported_feature` | The pair exists, but not with this option (`feature`, e.g. `politeness` for `en-US`). Use the default tone. |
 | `not_found` | The translation file is gone (expired or deleted). Try again. |
 | `payload_too_large` | The content is too large; translate less at once (or lower `maxCharacters`). |

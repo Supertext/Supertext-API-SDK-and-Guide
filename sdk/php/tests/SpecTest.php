@@ -53,6 +53,11 @@ final class SpecTest extends TestCase
         $spec = self::spec('languages.json');
         self::assertSame($spec['sources'], Languages::SOURCES);
         self::assertSame($spec['targets'], Languages::TARGETS);
+        self::assertSame($spec['defaultTargets'], Languages::DEFAULT_TARGETS);
+        self::assertSame($spec['targetOptions'], array_column(Languages::targetOptions(), 'code'));
+        foreach (Languages::targetOptions() as $option) {
+            self::assertContains($option, $spec['targets']);
+        }
     }
 
     /** @return array<string, array{array<string, mixed>, string}> */
@@ -60,7 +65,7 @@ final class SpecTest extends TestCase
     {
         $spec = self::spec('languages.json');
         $out = [];
-        foreach (['matchTarget', 'matchSource', 'resolveTarget', 'resolveSource', 'supportsPoliteness'] as $function) {
+        foreach (['matchTarget', 'matchSource', 'defaultTarget', 'suggestTarget', 'resolveTarget', 'resolveSource', 'supportsPoliteness'] as $function) {
             foreach ($spec[$function] as $i => $case) {
                 $out[$function . ' #' . $i . ' ' . json_encode($case, JSON_UNESCAPED_UNICODE)] = [$case, $function];
             }
@@ -78,6 +83,8 @@ final class SpecTest extends TestCase
         $call = static fn (): mixed => match ($function) {
             'matchTarget' => Languages::matchTarget($in),
             'matchSource' => Languages::matchSource($in),
+            'defaultTarget' => Languages::defaultTarget($in),
+            'suggestTarget' => Languages::suggestTarget($in),
             'resolveTarget' => Languages::target($in, $mapping),
             'resolveSource' => Languages::source($in, $mapping),
             'supportsPoliteness' => Languages::supportsPoliteness($in),

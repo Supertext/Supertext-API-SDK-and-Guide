@@ -65,7 +65,7 @@ Both calls run the whole protocol: upload, poll the status, download, and always
 
 The client sends the language codes **as given** (only trimmed): nothing is guessed or converted. An empty target raises `unsupported_language` without a request; an empty source is left out (Supertext detects the language).
 
-Supertext's codes are its own: sources are bare languages (`en`, `de`, `gsw`), targets are what Supertext offers exactly, regional for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), a dialect for Swiss German (`gsw-u-sd-chzh`) and bare for the others (`es`, `nl`). A bare `de` as target is rejected (`invalid_language_pair`). There are no default regions: let the administrator map each CMS language to a Supertext language (a setting per language), and resolve the codes with `Languages` before calling:
+Supertext's codes are its own: sources are bare languages (`en`, `de`, `gsw`), targets are what Supertext offers exactly, regional for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), a dialect for Swiss German (`gsw-u-sd-chzh`) and bare for the others (`es`, `nl`). A bare `de` as target is rejected (`invalid_language_pair`). Let the administrator map each CMS language to a Supertext language (a combo box per language from `Languages.target_options()`, `Languages.suggest_target(code)` preselected), and resolve the codes with `Languages` before calling. A language nobody mapped uses its default where one is obvious (`de` → `de-DE`, `en` → `en-US`, `zh` → `zh-Hans`, `zh-TW` → `zh-Hant`, `es-ES` → `es`; `Languages.DEFAULT_TARGETS`); anything else (`en-IE`, `gsw`) is `unsupported_language`:
 
 ```python
 from supertext.v1 import Languages, SupertextError
@@ -73,7 +73,11 @@ from supertext.v1 import Languages, SupertextError
 mapping = {"de": "de-CH", "no": "nb"}         # CMS language → Supertext code (the integration's setting)
 Languages.target(cms_locale, mapping)         # "de" → "de-CH", "no" → "nb"
 Languages.target("de_ch")                     # "de-CH": a CMS code equal to a Supertext code (case, _/-) is used
-Languages.target("de")                        # SupertextError unsupported_language (target_lang "de"): map it
+Languages.target("de")                        # "de-DE" (the default)
+Languages.target("en-IE")                     # SupertextError unsupported_language (target_lang "en-IE"): map it
+Languages.default_target("es-ES")             # "es"; None when there is no default (or an exact match)
+Languages.suggest_target("de_ch")             # "de-CH": exact match, else the default, else None (preselect it)
+Languages.target_options()                    # TARGETS sorted by name, for the combo box
 Languages.source("en-US")                     # "en" (sources have no regions)
 Languages.source("")                          # "" (auto-detect)
 Languages.match_target("pt_br")               # "pt-BR"; None when there is no exact match
@@ -83,8 +87,9 @@ Languages.TARGETS                             # tuple of TargetLanguage(code, na
 Languages.SOURCES                             # tuple of SourceLanguage(code, name)
 ```
 
-- `Languages.target(code, mapping=None)`: the mapping's value (sent trimmed, even if the SDK doesn't know it yet, so a language Supertext adds later works), else the exact match in `Languages.TARGETS`, else `SupertextError(unsupported_language)` with `target_lang` set. Mapping keys are compared like codes (case, `_`/`-`, spaces).
+- `Languages.target(code, mapping=None)`: the mapping's value (sent trimmed, even if the SDK doesn't know it yet, so a language Supertext adds later works), else the exact match in `Languages.TARGETS`, else `default_target`, else `SupertextError(unsupported_language)` with `target_lang` set. Mapping keys are compared like codes (case, `_`/`-`, spaces).
 - `Languages.source(code, mapping=None)`: the mapping's value, else `match_source` (exact, else the first subtag: `de_DE_formal` → `de`), else `unsupported_language` with `source_lang` set.
+- In the combo box, show each name in the administrator's language where you can (e.g. Babel's `Locale(ui_locale).languages`) and the code next to it.
 - The functions are also available on the module: `supertext.v1.languages.target(…)`.
 
 The list is from the live API (October 2026). For the live list, `client.get_features()` returns the language pairs Supertext offers right now, without cost:

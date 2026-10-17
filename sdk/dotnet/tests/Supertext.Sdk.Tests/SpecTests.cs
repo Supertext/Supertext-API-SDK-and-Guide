@@ -10,6 +10,8 @@ public class SpecTests
     public static IEnumerable<object[]> RetryCases() => Spec.Cases("retry-delay.json", "cases");
     public static IEnumerable<object[]> MatchTargetCases() => Spec.Cases("languages.json", "matchTarget");
     public static IEnumerable<object[]> MatchSourceCases() => Spec.Cases("languages.json", "matchSource");
+    public static IEnumerable<object[]> DefaultTargetCases() => Spec.Cases("languages.json", "defaultTarget");
+    public static IEnumerable<object[]> SuggestTargetCases() => Spec.Cases("languages.json", "suggestTarget");
     public static IEnumerable<object[]> ResolveTargetCases() => Spec.Cases("languages.json", "resolveTarget");
     public static IEnumerable<object[]> ResolveSourceCases() => Spec.Cases("languages.json", "resolveSource");
     public static IEnumerable<object[]> PolitenessCases() => Spec.Cases("languages.json", "supportsPoliteness");
@@ -77,6 +79,35 @@ public class SpecTests
         var c = JsonDocument.Parse(json).RootElement;
         Assert.Equal(c.Str("out"), Languages.MatchTarget(c.Str("in")));
         Assert.Equal(c.Str("out") is not null, Languages.IsSupportedTarget(c.Str("in")));
+    }
+
+    [Fact]
+    public void DefaultTargetsAndOptionsMatchTheSpec()
+    {
+        var spec = Spec.Load("languages.json");
+        var defaults = spec.GetProperty("defaultTargets").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!);
+        Assert.Equal(defaults, Languages.DefaultTargets);
+        var order = spec.GetProperty("targetOptions").EnumerateArray().Select(e => e.GetString()!);
+        Assert.Equal(order, Languages.TargetOptions().Select(l => l.Code));
+        Assert.Equal(Languages.Targets.OrderBy(l => l.Code), Languages.TargetOptions().OrderBy(l => l.Code));
+    }
+
+    [Theory]
+    [MemberData(nameof(DefaultTargetCases))]
+    public void DefaultTarget(string name, string json)
+    {
+        _ = name;
+        var c = JsonDocument.Parse(json).RootElement;
+        Assert.Equal(c.Str("out"), Languages.DefaultTarget(c.Str("in")));
+    }
+
+    [Theory]
+    [MemberData(nameof(SuggestTargetCases))]
+    public void SuggestTarget(string name, string json)
+    {
+        _ = name;
+        var c = JsonDocument.Parse(json).RootElement;
+        Assert.Equal(c.Str("out"), Languages.SuggestTarget(c.Str("in")));
     }
 
     [Theory]

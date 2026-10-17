@@ -158,17 +158,35 @@ Supertext accepts exactly the codes `GET features` lists (cost-free; it returns 
 - No pair within one language (`en` → `en-GB` isn't offered).
 - **Politeness** (formal/informal) for every target except `en-GB`, `en-US`, `gsw-u-sd-*`, `rm`, `sq`, `sr-Cyrl`, `sr-Latn`.
 
-Anything else is HTTP 404 `INVALID_LANGUAGE_PAIR` (bare `de`, `es-ES`, `sl-SI`, `zh-CN`: the default regions earlier SDK versions added were wrong for most languages). Politeness `more`/`less` for a target without it is HTTP 400 `FEATURE_ERROR` (`feature: politeness`).
+Anything else is HTTP 404 `INVALID_LANGUAGE_PAIR` (bare `de`, `es-ES`, `sl-SI`, `zh-CN`: the default regions SDK 0.1 added were wrong for most languages; the defaults since 0.4.0 below only produce listed codes). Politeness `more`/`less` for a target without it is HTTP 400 `FEATURE_ERROR` (`feature: politeness`).
 
-**No guessing.** Systems name their languages differently (Shopify `de`, `pt-BR`; Magento `de_CH`; Directus `en-US`; WordPress `de_DE_formal`), and a guessed Supertext code is either rejected or, worse, the wrong variant (German German for a Swiss site). So every integration has a **language mapping**: a setting per CMS language with the Supertext code to use, offered as a list of the targets (show the name and the code).
+**A mapping, with defaults.** Systems name their languages differently (Shopify `de`, `pt-BR`; Magento `de_CH`; Directus `en-US`; WordPress `de_DE_formal`), and only the administrator knows whether a site's `de` means Germany, Austria or Switzerland. So every integration has a **language mapping**: for each CMS language a **combo box with Supertext's target codes** (`Languages.targetOptions()`: code, English name and politeness, sorted by name; show the name localized with the platform's own display-name facility where it has one, e.g. `Intl.DisplayNames`, `Locale.getDisplayName`, `CultureInfo`, Babel, Symfony Intl, and always the code next to it), with the **suggested code preselected** (`Languages.suggestTarget(code)`: the exact match, else the default below). A language nobody mapped still translates with its default, so a fresh installation works without visiting the screen; a language without a default is marked "please choose" and fails until it is mapped. Where settings come from the environment or a config file (`SUPERTEXT_LANGUAGE_MAP`, `appsettings.json`, …), the same mapping overrides the defaults there.
+
+**Defaults** (`Languages.defaultTarget(code)`, [`spec/languages.json`](../spec/languages.json) → `defaultTargets`), only where they are obvious:
+
+| CMS code | Default target | Why |
+| --- | --- | --- |
+| `de` | `de-DE` | Supertext offers German only with a region: the language's home country |
+| `en` | `en-US` | as above |
+| `fr` | `fr-FR` | as above |
+| `it` | `it-IT` | as above |
+| `pt` | `pt-PT` | as above |
+| `zh` | `zh-Hans` | Chinese only with a script: simplified, the most used |
+| `sr` | `sr-Latn` | Serbian only with a script |
+| `zh-TW`, `zh-HK`, `zh-MO` / `zh-CN`, `zh-SG` | `zh-Hant` / `zh-Hans` | the script used there |
+| *language*-*Script*-*REGION* (`zh-Hant-TW`, `sr-Latn-RS`) | *language*-*Script* | the script is given |
+| *language*-*REGION* of a bare target (`es-ES`, `es-419`, `nl_NL`, `sl-SI`, `cs-CZ`, `nb-NO`) | the bare target (`es`, `nl`, `sl`, `cs`, `nb`) | Supertext has only the one form |
+
+Nothing else is guessed: a region Supertext doesn't list for a regional-only language (`de-LI`, `en-IE`, `en-AU`, `fr-BE`, `fr-LU`, `pt-AO`), `sr-RS` (script unknown), Swiss German `gsw` (two dialects, neither obvious), `no` and longer codes (`de_DE_formal`) have no default and need a mapping.
 
 How the SDKs resolve a CMS language (`Languages.target(code, mapping)` / `Languages.source(code, mapping)`):
 
 1. **The mapping**, if it has a non-blank entry for the code (keys compared ignoring case and `_`/`-`). Its value is sent as it is, so a language Supertext adds later works before the SDK lists it; for the source, a known value is sent in its source form (`{"en": "en-US"}` sends source `en`, target `en-US`), so one mapping serves both directions.
-2. **An exact match**: a CMS code that equals a Supertext code apart from case and `_`/`-` (`de_CH` → `de-CH`, `ES` → `es`). Sources also match by their first part (`en-US` as a source is `en`; sources have no regions).
-3. **Otherwise the error `unsupported_language`**, and nothing is sent. Tell the editor which language isn't mapped and the administrator where to map it.
+2. **An exact match**: a CMS code that equals a Supertext code apart from case and `_`/`-` (`de_CH` → `de-CH`, `ES` → `es`; `Languages.matchTarget`, exact only). Sources also match by their first part (`en-US` as a source is `en`; sources have no regions, so the source side needs no defaults).
+3. **For targets, the default** above (`de` → `de-DE`, `es-ES` → `es`).
+4. **Otherwise the error `unsupported_language`**, and nothing is sent. Tell the editor which language isn't mapped and the administrator where to map it.
 
-The client sends the codes it is given unchanged (trimmed). Pre-fill the mapping screen with the exact matches, mark the languages without one, and hide the formal/informal choice for targets that don't support it (`Languages.supportsPoliteness`). For an always-current list, call `getFeatures()` instead of the built-in one.
+The client sends the codes it is given unchanged (trimmed). Save the mapping only for languages the administrator changed (or save the preselected value explicitly: both give the same result), and hide the formal/informal choice for targets that don't support it (`Languages.supportsPoliteness`). For an always-current list, call `getFeatures()` instead of the built-in one.
 
 ## 7. The HTML document: segments
 
@@ -234,7 +252,7 @@ The SDKs throw one error type with a stable `code`, an English `message`, and wh
 | `missing_api_key` | No key configured | Where to enter the key, plus the account and API key links |
 | `authentication_failure` | HTTP 401/403 | The key was rejected: check or regenerate it (links) |
 | `invalid_language_pair` | HTTP 404 (or 400) `INVALID_LANGUAGE_PAIR` | Supertext doesn't translate from X into Y: check the language mapping (the code must be one of `GET features`, e.g. `de-CH`, `es`) |
-| `unsupported_language` | Nothing sent: the language has no mapping and no exact match | Language X has no Supertext language yet: map it in the plugin's language settings |
+| `unsupported_language` | Nothing sent: the language has no mapping, no exact match and no default | Language X has no Supertext language yet: map it in the plugin's language settings |
 | `unsupported_feature` | HTTP 400 `FEATURE_ERROR` (`feature`) | Formal/informal address isn't available for this language: switch it to *Default* |
 | `quota_exceeded` | Status `limit_exceeded` | The Supertext translation limit is used up: upgrade the subscription |
 | `too_many_requests` | HTTP 429 after retries | Too many requests right now: try again in a minute |
@@ -297,7 +315,7 @@ With `STAND_IN_SAMPLES` the stand-in returns real translations for known texts, 
 ## 15. Checklist
 
 - [ ] `Authorization: Supertext-Auth-Key <key>`, pasted prefix stripped, blank key = no request
-- [ ] Language mapping per CMS language (list of the Supertext targets), exact matches pre-filled, no guessed regions; `unsupported_language` shown with where to map it; formal/informal only where the target supports it
+- [ ] Language mapping per CMS language (combo box of the Supertext targets, `suggestTarget` preselected), defaults only from `Languages.defaultTarget`; `unsupported_language` shown with where to map it; formal/informal only where the target supports it
 - [ ] File part Content-Type exactly `text/html`, `<meta charset="utf-8">` in the document
 - [ ] All fields of an item in one document per language; documents under 1,000,000 characters
 - [ ] One `data-st-id` per paragraph/field, formatting as inline tags, structure kept when writing back

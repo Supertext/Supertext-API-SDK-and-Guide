@@ -44,6 +44,22 @@ def test_match_target(case: dict[str, Any]) -> None:
     assert Languages.is_supported_target(case["in"]) is (case["out"] is not None)
 
 
+def test_default_targets_and_options() -> None:
+    assert dict(Languages.DEFAULT_TARGETS) == LANGUAGES["defaultTargets"]
+    assert [lang.code for lang in Languages.target_options()] == LANGUAGES["targetOptions"]
+    assert set(Languages.target_options()) == set(Languages.TARGETS)
+
+
+@pytest.mark.parametrize("case", LANGUAGES["defaultTarget"], ids=lambda c: repr(c["in"]))
+def test_default_target(case: dict[str, Any]) -> None:
+    assert Languages.default_target(case["in"]) == case["out"]
+
+
+@pytest.mark.parametrize("case", LANGUAGES["suggestTarget"], ids=lambda c: repr(c["in"]))
+def test_suggest_target(case: dict[str, Any]) -> None:
+    assert Languages.suggest_target(case["in"]) == case["out"]
+
+
 @pytest.mark.parametrize("case", LANGUAGES["matchSource"], ids=lambda c: repr(c["in"]))
 def test_match_source(case: dict[str, Any]) -> None:
     assert Languages.match_source(case["in"]) == case["out"]

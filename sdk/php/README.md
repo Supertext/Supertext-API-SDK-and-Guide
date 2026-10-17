@@ -45,7 +45,7 @@ The steps are available on their own too: `submit()` → `waitUntilDone()` → `
 
 The client sends language codes **as you give them** (trimmed). Supertext expects exact codes: the source as a bare language (`en`), the target as listed in `Languages::TARGETS`: regional for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), a dialect for Swiss German (`gsw-u-sd-chzh`), bare for the others (`es`, `nl`). Anything else is rejected with `invalid_language_pair`.
 
-There are no default regions and no guessing: whether a site's `de` means Germany or Switzerland is the administrator's decision. Give your integration a language setting (CMS language → Supertext code) and resolve every CMS language with `Languages` before calling the client:
+Whether a site's `de` means Germany or Switzerland is the administrator's decision. Give your integration a language setting (a combo box per CMS language from `Languages::targetOptions()`, `Languages::suggestTarget($code)` preselected) and resolve every CMS language with `Languages` before calling the client. A language nobody mapped uses its default where one is obvious (`de` → `de-DE`, `en` → `en-US`, `zh` → `zh-Hans`, `zh-TW` → `zh-Hant`, `es-ES` → `es`; `Languages::DEFAULT_TARGETS`); anything else (`en-IE`, `gsw`) is `unsupported_language`:
 
 ```php
 use Supertext\Sdk\V1\Languages;
@@ -54,7 +54,9 @@ $mapping = ['de' => 'de-CH', 'no' => 'nb']; // the administrator's setting: CMS 
 
 Languages::target('de', $mapping);  // "de-CH" (the mapping wins; its value is sent as it is)
 Languages::target('fr_fr');         // "fr-FR" (equal to a supported code apart from case and _/-)
-Languages::target('de');            // SupertextException unsupported_language (targetLang "de"): ask the administrator to map it
+Languages::target('de');            // "de-DE" (the default)
+Languages::target('en-IE');         // SupertextException unsupported_language (targetLang "en-IE"): ask the administrator to map it
+Languages::suggestTarget('de_ch');  // "de-CH" (exact match, else the default, else null): preselect it in the combo box
 Languages::source('en-US');         // "en" (sources have no regions)
 Languages::source('');              // "" (auto-detect)
 
@@ -63,7 +65,8 @@ $client->translateTexts($texts, Languages::target($cmsLocale, $mapping), Languag
 
 - `Languages::SOURCES` (`code`, `name`) and `Languages::TARGETS` (`code`, `name`, `politeness`): the languages the API offered in October 2026, e.g. for the setting's drop-downs.
 - `matchTarget($code)` / `matchSource($code)`: the supported code, or `null` (`matchSource` also takes the first subtag: `en-GB` → `en`). Use them to pre-fill the setting.
-- `target($code, $mapping = [])` / `source($code, $mapping = [])`: the code to send; `unsupported_language` (nothing is sent) when there is neither a mapping nor a match. A mapping value is sent even if it isn't in the list, so a language Supertext adds later works before the SDK knows it.
+- `defaultTarget($code)`: the default for a code without an exact match, else null; `suggestTarget($code)`: exact match, else default, else null; `targetOptions()`: `TARGETS` sorted by name for the combo box (show the name localized where you can, e.g. Symfony Intl or `Locale::getDisplayName()`, and the code next to it).
+- `target($code, $mapping = [])` / `source($code, $mapping = [])`: the code to send (mapping, exact match, for targets the default); `unsupported_language` (nothing is sent) when there is none. A mapping value is sent even if it isn't in the list, so a language Supertext adds later works before the SDK knows it.
 - `supportsPoliteness($target)`: whether formal/informal is offered (`null` for an unknown code). Hide the choice for the others: the API answers `unsupported_feature`.
 - `isSupportedTarget($code)`, `isSupportedSource($code)`.
 

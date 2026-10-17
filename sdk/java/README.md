@@ -56,18 +56,22 @@ Lower-level calls: `validateApiKey()` (free check of the key; throws), `checkApi
 
 The client sends language codes **as given** (trimmed); it doesn't convert them. An empty target is `unsupported_language` without a request; an empty source is left out (auto-detect).
 
-Supertext's codes are fixed: sources are bare (`en`, `de`, `gsw`), targets are what Supertext expects exactly: regional for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), a dialect for Swiss German (`gsw-u-sd-chzh`), bare for the others (`es`, `nl`, `sl`). `Languages.SOURCES` and `Languages.TARGETS` list them (`SourceLanguage`/`TargetLanguage`: `getCode()`, `getName()`, and for targets `supportsPoliteness()`). There is **no default region** and no guessing: a CMS language that equals a Supertext code (apart from case, `_`/`-` and spaces) is used as it is; anything else needs a mapping, a setting per language that the administrator fills in.
+Supertext's codes are fixed: sources are bare (`en`, `de`, `gsw`), targets are what Supertext expects exactly: regional for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), a dialect for Swiss German (`gsw-u-sd-chzh`), bare for the others (`es`, `nl`, `sl`). `Languages.SOURCES` and `Languages.TARGETS` list them (`SourceLanguage`/`TargetLanguage`: `getCode()`, `getName()`, and for targets `supportsPoliteness()`). A CMS language that equals a Supertext code (apart from case, `_`/`-` and spaces) is used as it is; a language nobody mapped uses its default where one is obvious (`de` → `de-DE`, `en` → `en-US`, `zh` → `zh-Hans`, `zh-TW` → `zh-Hant`, `es-ES` → `es`; `Languages.DEFAULT_TARGETS`); anything else (`en-IE`, `gsw`) needs a mapping: a combo box per language (`Languages.targetOptions()`, `Languages.suggestTarget(code)` preselected) that the administrator can change.
 
 ```java
 Map<String, String> mapping = Map.of("de", "de-CH", "no", "nb"); // CMS language → Supertext code (your setting)
 
 Languages.target("de_ch");             // "de-CH" (exact match)
 Languages.target("de", mapping);       // "de-CH" (mapped)
-Languages.target("de");                // throws SupertextException unsupported_language, getTargetLang() "de": ask for a mapping
+Languages.target("de");                // "de-DE" (default)
+Languages.target("en-IE");             // throws SupertextException unsupported_language, getTargetLang() "en-IE": ask for a mapping
 Languages.source("en-US");             // "en" (a source is the first subtag)
 Languages.source("");                  // "" (auto-detect)
 
-Languages.matchTarget("de");           // null: no exact match (show "please map this language")
+Languages.matchTarget("de");           // null: no exact match
+Languages.defaultTarget("es-ES");      // "es" (null without a default or with an exact match)
+Languages.suggestTarget("de_ch");      // "de-CH": exact match, else the default, else null (preselect it; null: "please choose")
+Languages.targetOptions();             // TARGETS sorted by name, for the combo box
 Languages.matchSource("de_DE_formal"); // "de"
 Languages.isSupportedTarget("es");     // true
 Languages.isSupportedSource("xx");     // false
@@ -76,7 +80,7 @@ Languages.supportsPoliteness("en-US"); // false (null for an unknown code): hide
 client.translateTexts(segments, Languages.target(cmsLocale, mapping), Languages.source(cmsSourceLocale, mapping));
 ```
 
-A mapping value is sent trimmed and otherwise unchanged, even if it isn't in `TARGETS`, so a language Supertext adds later works before the SDK knows it.
+A mapping value is sent trimmed and otherwise unchanged, even if it isn't in `TARGETS`, so a language Supertext adds later works before the SDK knows it. In the combo box, show each name in the administrator's language where you can (`Locale.forLanguageTag(code).getDisplayName(uiLocale)`) and the code next to it.
 
 **Live list.** `client.getFeatures()` returns the language pairs the API offers right now (`GET features`, free of charge) as `FeatureSupport` objects: `getSourceLang()`, `getTargetLang()`, `getFeatures()` (e.g. `supports_politeness`, `supports_glossary`). Malformed entries are skipped. Use it for a settings page's language choice; `Languages` is the list as of this SDK version.
 

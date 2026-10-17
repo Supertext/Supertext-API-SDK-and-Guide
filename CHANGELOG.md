@@ -4,6 +4,20 @@ All SDKs in this repository share one version. Format: one section per release, 
 
 ## Unreleased
 
+## 0.4.0 — 2026-10-17
+
+Behaviour change for integrations: a target language nobody mapped now uses its default where one is obvious, instead of failing.
+
+### Added
+
+- **Default targets** in `Languages` (all five SDKs, `spec/languages.json` → `defaultTargets`, `defaultTarget`, `suggestTarget`, `targetOptions`): `de` → `de-DE`, `en` → `en-US`, `fr` → `fr-FR`, `it` → `it-IT`, `pt` → `pt-PT`, `zh` → `zh-Hans`, `sr` → `sr-Latn`; `zh-TW`/`zh-HK`/`zh-MO` → `zh-Hant`, `zh-CN`/`zh-SG` → `zh-Hans`; `language-Script-REGION` → `language-Script` (`sr-Latn-RS` → `sr-Latn`); a region of a bare target → the bare target (`es-ES`, `es-419` → `es`, `nl_NL` → `nl`, `nb-NO` → `nb`). Nothing else is guessed: `de-LI`, `en-IE`, `fr-BE`, `sr-RS`, `gsw`, `no` and `de_DE_formal` still need a mapping.
+- `defaultTarget(code)` (the default, or null for a code with an exact match or without a default), `suggestTarget(code)` (exact match, else default, else null: what a settings screen preselects), `targetOptions()` (the targets sorted by English name, for the language combo box) and the `DEFAULT_TARGETS` table. TypeScript `Languages.defaultTarget`/`suggestTarget`/`targetOptions`/`DEFAULT_TARGETS` (also as named exports); PHP `Languages::defaultTarget()`/`suggestTarget()`/`targetOptions()`/`DEFAULT_TARGETS`; Python `Languages.default_target`/`suggest_target`/`target_options`/`DEFAULT_TARGETS`; .NET `Languages.DefaultTarget`/`SuggestTarget`/`TargetOptions()`/`DefaultTargets`; Java `Languages.defaultTarget`/`suggestTarget`/`targetOptions()`/`DEFAULT_TARGETS`.
+
+### Changed
+
+- `Languages.target(code, mapping)`: the mapping, else the exact match, else **the default**, else `unsupported_language`. `Languages.target('de')` is now `de-DE` (was `unsupported_language`), `es-ES` is `es`. `matchTarget` stays exact-only; sources are unchanged.
+- Integration guide → *Language codes*: the mapping is a combo box per CMS language with Supertext's codes, the suggested code preselected, names localized with the platform's display-name facility and the code shown next to them; the defaults table; an environment or config mapping overrides the defaults.
+
 ## 0.3.0 — 2026-10-16
 
 Breaking change for plugins that use the version reports: the Commando Center support from 0.1.0 moved out of the SDK.

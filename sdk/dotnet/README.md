@@ -47,24 +47,27 @@ The lower-level steps are public too: `GetFeaturesAsync` (the live language pair
 
 `Languages.Sources` and `Languages.Targets` list what Supertext offers (`SourceLanguage(Code, Name)`, `TargetLanguage(Code, Name, Politeness)`). Sources are bare languages (`en`, `de`, `gsw`). Targets are exactly what Supertext expects: with a region for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), with a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), a dialect for Swiss German (`gsw-u-sd-chzh`), bare for the others (`es`, `nl`, `sl`). Anything else is rejected by the API (`invalid_language_pair`).
 
-There is **no default region and no guessing**: `de` is not a target, because the SDK can't know whether your site means Germany, Austria or Switzerland. Let the administrator map each CMS language (a setting per language) and resolve it before you call the client:
+`de` is not a target: only the administrator knows whether your site means Germany, Austria or Switzerland. Let the administrator map each CMS language (a combo box per language from `Languages.TargetOptions()`, `Languages.SuggestTarget(code)` preselected) and resolve it before you call the client. A language nobody mapped uses its default where one is obvious (`de` → `de-DE`, `en` → `en-US`, `zh` → `zh-Hans`, `zh-TW` → `zh-Hant`, `es-ES` → `es`; `Languages.DefaultTargets`); anything else (`en-IE`, `gsw`) is `unsupported_language`:
 
 ```csharp
 // The integration's language setting: CMS language → Supertext code.
 var mapping = new Dictionary<string, string> { ["de"] = "de-CH", ["no"] = "nb" };
 
-var target = Languages.Target(cmsLanguage, mapping);  // "de" → "de-CH", "fr_ch" → "fr-CH" (exact match), "it" → unsupported_language
+var target = Languages.Target(cmsLanguage, mapping);  // "de" → "de-CH", "fr_ch" → "fr-CH" (exact match), "it" → "it-IT" (default), "en-IE" → unsupported_language
 var source = Languages.Source(cmsSource, mapping);    // "en-US" → "en", "" → "" (auto-detect)
 await client.TranslateTextsAsync(texts, target, source);
 
 Languages.MatchTarget("de_ch");          // "de-CH" (case and _/- don't matter); "de" → null
 Languages.MatchSource("en-GB");          // "en" (exact, else the first subtag)
+Languages.DefaultTarget("es-ES");        // "es" (null without a default or with an exact match)
+Languages.SuggestTarget("de");           // "de-DE": exact match, else the default, else null (preselect it)
+Languages.TargetOptions();               // Targets sorted by name, for the combo box
 Languages.SupportsPoliteness("en-US");   // false (true for de-CH; null for a code not in the list)
 Languages.IsSupportedTarget("es-ES");    // false
 Languages.IsSupportedSource("gsw");      // true
 ```
 
-`Target` returns the mapping's value (trimmed, sent even if it isn't in the list, so a language Supertext adds later works before the SDK knows it), else an exact match, else throws `SupertextException` with code `unsupported_language` and `TargetLang` set; nothing is sent. `Source` works the same way (`SourceLang` set), and an empty source stays empty. Mapping keys are compared like codes (case, `_`/`-` and spaces don't matter); blank values are ignored. Use `MatchTarget` to prefill the mapping for CMS languages that already are Supertext codes.
+`Target` returns the mapping's value (trimmed, sent even if it isn't in the list, so a language Supertext adds later works before the SDK knows it), else an exact match, else the default (`DefaultTarget`), else throws `SupertextException` with code `unsupported_language` and `TargetLang` set; nothing is sent. `Source` works the same way (`SourceLang` set), and an empty source stays empty. Mapping keys are compared like codes (case, `_`/`-` and spaces don't matter); blank values are ignored. Use `SuggestTarget` to preselect each CMS language in the combo box; show the name in the administrator's language where you can (`new CultureInfo(code).DisplayName` under the UI culture, or your CMS's own names) and the code next to it.
 
 **The live list.** `GetFeaturesAsync()` returns the language pairs the API offers right now (`GET features`, no cost) as `FeatureSupport(SourceLang, TargetLang, Features)`, with features such as `supports_politeness`, e.g. for a settings page. Malformed entries are skipped.
 
@@ -81,7 +84,7 @@ Everything the API or the client can't handle is a `SupertextException` with `Co
 | `missing_api_key` | No key configured; nothing was sent | Enter the API key in the settings (with the account and API-key links above) |
 | `authentication_failure` | HTTP 401/403 | The API key is wrong or revoked: check it (links above) |
 | `invalid_language_pair` | HTTP 400 (404 for an unknown language) `INVALID_LANGUAGE_PAIR` | Supertext doesn't support this language combination; check the language mapping |
-| `unsupported_language` | No request was sent: the language has no Supertext code (no mapping, no exact match) or the target is empty | Map this language to a Supertext language in the settings |
+| `unsupported_language` | No request was sent: the language has no Supertext code (no mapping, no exact match, no default) or the target is empty | Map this language to a Supertext language in the settings |
 | `unsupported_feature` | HTTP 400 `FEATURE_ERROR`: the pair exists, but not with this option (`Feature`, e.g. `politeness`) | Formal/informal isn't available for this language; choose the default |
 | `not_found` | HTTP 404 | The file expired or was deleted; try again |
 | `payload_too_large` | HTTP 413 | The content is too large; translate less at once |

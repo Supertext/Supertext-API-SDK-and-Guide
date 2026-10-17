@@ -21,6 +21,16 @@ describe('spec/languages.json', () => {
   it('has the same source languages', () => expect(Languages.SOURCES).toEqual(s.sources))
   it('has the same target languages', () => expect(Languages.TARGETS).toEqual(s.targets))
   for (const c of s.matchTarget) it(`matchTarget ${JSON.stringify(c.in)}`, () => expect(Languages.matchTarget(c.in)).toBe(c.out))
+  it('has the same default targets', () => expect(Languages.DEFAULT_TARGETS).toEqual(s.defaultTargets))
+  for (const c of s.defaultTarget) it(`defaultTarget ${JSON.stringify(c.in)}`, () => expect(Languages.defaultTarget(c.in)).toBe(c.out))
+  for (const c of s.suggestTarget) it(`suggestTarget ${JSON.stringify(c.in)}`, () => expect(Languages.suggestTarget(c.in)).toBe(c.out))
+  it('targetOptions are the targets sorted by name', () => {
+    expect(Languages.targetOptions().map((t) => t.code)).toEqual(s.targetOptions)
+    for (const t of Languages.targetOptions()) expect(t).toEqual(s.targets.find((x: any) => x.code === t.code))
+  })
+  it('no prototype keys', () => {
+    for (const code of ['constructor', 'zh-constructor', '__proto__', 'tostring']) expect(Languages.defaultTarget(code)).toBeNull()
+  })
   for (const c of s.matchSource) it(`matchSource ${JSON.stringify(c.in)}`, () => expect(Languages.matchSource(c.in)).toBe(c.out))
   const resolve = (fn: (code: string, mapping?: Record<string, string>) => string, c: any) => {
     if (c.error) {

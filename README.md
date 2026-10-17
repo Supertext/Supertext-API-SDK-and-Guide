@@ -27,7 +27,7 @@ All five offer the same things, named the way each language expects, in a **`v1`
 - `translateHtml(html, target, source?, politeness?)`: one HTML document, the full round trip.
 - The single steps (`submit`, `getStatus`, `waitUntilDone`, `download`, `delete`), `validateApiKey` (a cost-free key check for settings pages) and `getFeatures` (the language pairs the API offers right now).
 - `checkApiKey`: the automatic key check with its result (status, HTTP status, Supertext's error code, a local key fingerprint). Version reports to the Commando Center are [Supertext Plugin Health](https://github.com/Supertext/Commando-Center-Supertext-Translation/tree/main/plugin-health)'s job; it uses this check. See the [guide](docs/integration-guide.md#14-the-api-key-check-and-version-reports).
-- `Languages`: the API's source and target languages, an exact match for CMS codes (`de_CH` → `de-CH`), the integration's language mapping, and which targets offer formal/informal. No default regions and no guessing: an unmapped language is the error `unsupported_language`. The client sends the codes it is given.
+- `Languages`: the API's source and target languages, an exact match for CMS codes (`de_CH` → `de-CH`), the integration's language mapping, the options and suggestion for a mapping combo box, defaults only where they are obvious (`de` → `de-DE`, `zh` → `zh-Hans`, `es-ES` → `es`), and which targets offer formal/informal. Anything else unmapped (`en-IE`, `gsw`) is the error `unsupported_language`. The client sends the codes it is given.
 - `HtmlDocument`: the segment packing, if you drive the steps yourself.
 - One error type with stable codes (`authentication_failure`, `invalid_language_pair`, `quota_exceeded`, …) to show users a message in their language.
 - Built in: the `Supertext-Auth-Key` header (pasted prefixes stripped), the exact multipart upload the API accepts, HTTP 429 retries with `Retry-After`, polling with a timeout, and deleting the file afterwards, also after errors.
@@ -41,7 +41,7 @@ const client = new SupertextClient(process.env.SUPERTEXT_API_KEY ?? '')
 const mapping = { de: 'de-CH' } // the plugin's language setting: CMS language → Supertext code
 const german = await client.translateTexts(
   { title: 'Hello & welcome', body: { text: '<p>Our <b>new</b> shop opens on Monday.</p>', html: true } },
-  Languages.target('de', mapping), // 'de-CH'; an unmapped 'de' would throw unsupported_language
+  Languages.target('de', mapping), // 'de-CH'; unmapped, 'de' would be its default 'de-DE'
   { sourceLang: Languages.source('en-US'), politeness: 'more' },
 )
 ```

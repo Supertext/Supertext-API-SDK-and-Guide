@@ -34,6 +34,13 @@ class SpecVectorsTest {
         }
         assertEquals(sources, Languages.SOURCES);
         assertEquals(targets, Languages.TARGETS);
+        assertEquals(Spec.strings(spec.get("defaultTargets")), Languages.DEFAULT_TARGETS);
+        List<String> order = new ArrayList<>();
+        for (TargetLanguage l : Languages.targetOptions()) {
+            order.add(l.getCode());
+        }
+        assertEquals(spec.get("targetOptions"), order);
+        assertEquals(new java.util.HashSet<>(Languages.TARGETS), new java.util.HashSet<>(Languages.targetOptions()));
     }
 
     /** Runs {@code call}; expects either {@code c.out} or the error {@code c.error}. */
@@ -57,6 +64,14 @@ class SpecVectorsTest {
                 assertEquals(c.get("out"), Languages.matchTarget(in));
                 assertEquals(c.get("out") != null, Languages.isSupportedTarget(in));
             }));
+        }
+        for (Map<String, Object> c : Spec.list(spec, "defaultTarget")) {
+            tests.add(DynamicTest.dynamicTest("defaultTarget '" + c.get("in") + "'",
+                    () -> assertEquals(c.get("out"), Languages.defaultTarget((String) c.get("in")))));
+        }
+        for (Map<String, Object> c : Spec.list(spec, "suggestTarget")) {
+            tests.add(DynamicTest.dynamicTest("suggestTarget '" + c.get("in") + "'",
+                    () -> assertEquals(c.get("out"), Languages.suggestTarget((String) c.get("in")))));
         }
         for (Map<String, Object> c : Spec.list(spec, "matchSource")) {
             tests.add(DynamicTest.dynamicTest("matchSource '" + c.get("in") + "'",
