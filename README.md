@@ -2,7 +2,7 @@
 
 Everything you need to connect a CMS, shop, PIM or your own software to Supertext's AI translation API: a guide built from more than 30 Supertext plugins, and SDKs for five languages that handle the tricky parts for you.
 
-- **[Integration guide](docs/integration-guide.md)**: the protocol, language codes, how to cut content into segments, rich text, rate limits, errors, writing translations back, security, testing, and a checklist.
+- **[Integration guide](docs/integration-guide.md)**: the protocol, language codes, how to cut content into segments, rich text, rate limits, errors, writing translations back, security, testing, XLIFF and HTML translation files, and a checklist.
 - **[API reference](docs/api-reference.md)**: endpoints, fields, statuses and HTTP errors on one page.
 - **SDKs**: below.
 - **[Test vectors](spec/)** and a **[stand-in API](stand-in/stand-in.mjs)** for your own tests.
@@ -29,6 +29,7 @@ All five offer the same things, named the way each language expects, in a **`v1`
 - `checkApiKey`: the automatic key check with its result (status, HTTP status, Supertext's error code, a local key fingerprint). Version reports to the Commando Center are [Supertext Plugin Health](https://github.com/Supertext/Commando-Center-Supertext-Translation/tree/main/plugin-health)'s job; it uses this check. See the [guide](docs/integration-guide.md#14-the-api-key-check-and-version-reports).
 - `Languages`: the API's source and target languages, an exact match for CMS codes (`de_CH` → `de-CH`), the integration's language mapping, the options and suggestion for a mapping combo box, defaults only where they are obvious (`de` → `de-DE`, `zh` → `zh-Hans`, `es-ES` → `es`), and which targets offer formal/informal. Anything else unmapped (`en-IE`, `gsw`) is the error `unsupported_language`. The client sends the codes it is given.
 - `HtmlDocument`: the segment packing, if you drive the steps yourself.
+- `TranslationFiles` (outside `v1`, it doesn't call the API): export segments as XLIFF 1.2 or HTML for translation elsewhere (a CAT tool, a translator, Supertext's web app) and import the translated file safely, with a check whether the source changed since. See the [guide](docs/integration-guide.md#15-translation-files-xliff-and-html).
 - One error type with stable codes (`authentication_failure`, `invalid_language_pair`, `quota_exceeded`, …) to show users a message in their language.
 - Built in: the `Supertext-Auth-Key` header (pasted prefixes stripped), the exact multipart upload the API accepts, HTTP 429 retries with `Retry-After`, polling with a timeout, and deleting the file afterwards, also after errors.
 

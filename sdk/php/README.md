@@ -169,6 +169,37 @@ Every Supertext plugin checks its API key automatically (test vectors: `spec/api
 
 Version reports to the Supertext Commando Center and its ping endpoint are [Supertext Plugin Health](https://github.com/Supertext/Commando-Center-Supertext-Translation/tree/main/plugin-health), not this SDK. Its key checker is `fn ($key) => (new Client($key))->checkApiKey()` with `Protocol::apiKeyFingerprint` as the fingerprint, and its `sdkVersion` is `Supertext\Sdk\Supertext::SDK_VERSION`.
 
+## Translation files
+
+For translations made outside the API (a CAT tool, a translator, Supertext's web app), `Supertext\Sdk\Files\TranslationFiles` exports segments as an XLIFF 1.2 or HTML file and imports the translated file again (test vectors: `spec/translation-file.json`). It is not tied to an API version and never calls the API.
+
+```php
+use Supertext\Sdk\Files\{FileJob, FileSegment, ImportedSegment, TranslationFiles};
+
+$job = new FileJob('Contao-Supertext-Translation', 'page:12', 'de-CH', 'fr-CH', [
+    new FileSegment('title', $page->title),
+    new FileSegment('body', $page->bodyHtml, html: true),
+]);
+file_put_contents('page-12.xlf', TranslationFiles::exportXliff([$job]));   // or exportHtml($job)
+
+// Later, with the uploaded file:
+foreach (TranslationFiles::read($uploaded) as $file) {
+    $page = findPage($file->reference);                                      // e.g. "page:12"
+    $current = [new FileSegment('title', $page->title), new FileSegment('body', $page->bodyHtml, html: true)];
+    foreach (TranslationFiles::importTranslations($file, $current) as $segment) {
+        match ($segment->status) {
+            ImportedSegment::OK => $page->setTranslation($segment->key, $segment->text),
+            ImportedSegment::SOURCE_CHANGED => $page->askBeforeWriting($segment->key, $segment->text),
+            default => $report[] = [$segment->key, $segment->status],         // untranslated, invalid_markup, missing
+        };
+    }
+}
+```
+
+`checksum()` (FNV-1a of the packed segment) marks each segment in the file, so `source_changed` tells you the source was edited since the export. Blank segments are left out; a job without text, an empty or duplicate key or empty metadata throws `TranslationFileError` with `$errorCode` `invalid_job`.
+
+Imported files are untrusted: `read()` refuses DTDs and entity declarations (`invalid_file`), files larger than `TranslationFiles::MAX_FILE_CHARACTERS` (10,000,000 bytes, `too_large`) and files without the job's metadata (`missing_metadata`). `importTranslations()` takes markup only from the current source: XLIFF inline codes are replaced by the source's own tags, and an HTML translation may only use the tags, attributes and comments the source has, with safe URLs; anything else is `invalid_markup`.
+
 ## Testing against the stand-in
 
 The repository ships a stand-in API (Node 18+) that behaves like the live API where integrations went wrong before:

@@ -1,0 +1,1444 @@
+{
+  "description": "Translation files: segments exported as XLIFF 1.2 or HTML, translated outside the API (CAT tool, translator, Supertext's web app) and imported again; see docs/integration-guide.md → Translation files. Not versioned with the API. A job is plugin, reference (opaque: what the integration needs to find the item), sourceLanguage, targetLanguage and segments (key unique in the job, text, html flag). Export refuses with invalid_job: no jobs; a metadata field or key that is empty, blank (metadata) or contains U+0000–U+001F or U+007F; duplicate keys (blank segments count); a job whose segments are all blank. Blank segments (only space, tab, CR, LF, FF) are left out. checksum: FNV-1a 32 bit (offset 0x811c9dc5, prime 0x01000193) over the UTF-8 bytes of the packed segment (html-document.json: plain text escaped, line breaks as <br>; HTML as is), 8 lowercase hex digits. It only detects changed sources. XLIFF: exact layout as in the vectors; one <file> per job (original = reference, product-name = plugin, datatype html, tool-id supertext-sdk); one <trans-unit> per segment (id = key, datatype=\"plaintext\" for plain text, extradata = checksum, xml:space=\"preserve\"), only <source>. Text is XML-escaped (& < > and CR as &#13;; \" also in attributes); characters XML 1.0 cannot hold are dropped. Plain text: CR LF and CR become LF. HTML segments become text and inline codes: a start tag with its matching end tag (same name, properly nested; not a void element: area base br col embed hr img input link meta param source track wbr; not self-closing) becomes <bpt>/<ept>, every other tag, comment and entity that XML can't hold (unknown named entities, numeric references to characters XML can't hold) a <ph>; the code's content is the original markup. Ids count from 1 in order of appearance, an <ept> has its <bpt>'s id. Known entities (amp lt gt quot apos nbsp, numeric) are decoded in text. HTML: the document HtmlDocument.build makes, with lang = source language and <meta name=\"supertext:plugin|reference|source-language|target-language\"> plus one <meta name=\"supertext:segment\" content=\"POSITION CHECKSUM KEY\"> per segment in the head; values HTML-escaped (& < > \" '). read: more than MAX_FILE_CHARACTERS (10,000,000, the language's string length) → too_large. After a BOM and leading whitespace, a file starting with <?xml or <xliff is XLIFF, with <!doctype html or <html an HTML file, anything else invalid_file. XLIFF must be well-formed XML: a DOCTYPE or any other <! declaration, entities other than the five predefined, character references to characters XML can't hold, mismatched or unclosed elements, more than one root → invalid_file. Element and attribute names are compared without namespace prefix. Root xliff with at least one file (else invalid_file); each file needs original, source-language, target-language and product-name (else missing_metadata). Units: every trans-unit in body (also inside group), key = id (units without id skipped, first unit wins for duplicate ids), checksum = extradata if 8 lowercase hex digits, else null. HTML: the supertext:* metas (attributes in any order, any quotes, names case-insensitive, first wins) must include the four metadata fields and at least one segment (else missing_metadata); a unit per segment meta (first wins for a position or key, units in position order), its translation the element with that data-st-id as HtmlDocument.parse reads HTML segments. import: for each non-blank current segment, in their order: missing (no unit with the key); untranslated (XLIFF: no <target>, or only whitespace and no codes; HTML: nothing or whitespace, for plain text nothing left as text); invalid_markup; else ok when the unit's checksum equals the current segment's checksum, source_changed otherwise (the integration decides). Text is set for ok and source_changed only. XLIFF target: <mrk> is unwrapped; <bpt>, <ept>, <ph> with an id 1–999999999 are codes; any other element makes it invalid_markup. Plain text segments: the target's text, any code → invalid_markup. HTML segments: text HTML-escaped (& < >), each code replaced by the current source's code with the same kind and id (the file's code content is ignored); invalid_markup if a code isn't in the current source, a bpt id is used twice, or ept/bpt don't pair and nest (dropped pairs and repeated ph are fine). HTML file, plain text segment: HtmlDocument.parse's plain text. HTML file, HTML segment: rebuilt from its tokens: text with < escaped as &lt;; tags only with names the current source has, start tags only with attributes that tag name has in the source; href src action formaction poster cite xlink:href (and each URL in srcset) must be relative or http/https/mailto/tel after decoding entities and removing whitespace and control characters (an & before the first / ? # → unsafe); comments only if identical to one in the source; else invalid_markup. An HTML file imported untranslated gives the source text as ok.",
+  "checksum": [
+    {
+      "segment": {
+        "text": "Käse & \"Brot\""
+      },
+      "out": "8bc37cbf"
+    },
+    {
+      "segment": {
+        "text": "Käse & \"Brot\"",
+        "html": true
+      },
+      "out": "58dba988"
+    },
+    {
+      "segment": {
+        "text": ""
+      },
+      "out": "811c9dc5"
+    },
+    {
+      "segment": {
+        "text": "a\nb"
+      },
+      "out": "9001dd9c"
+    },
+    {
+      "segment": {
+        "text": "a\r\nb"
+      },
+      "out": "9001dd9c"
+    },
+    {
+      "segment": {
+        "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+        "html": true
+      },
+      "out": "72d77312"
+    },
+    {
+      "segment": {
+        "text": "日本語 🎉"
+      },
+      "out": "98792689"
+    }
+  ],
+  "exportXliff": [
+    {
+      "name": "plain and HTML segments, blank ones left out",
+      "jobs": [
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "title",
+              "text": "Käse & \"Brot\""
+            },
+            {
+              "key": "empty",
+              "text": " \n "
+            },
+            {
+              "key": "body",
+              "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+              "html": true
+            }
+          ]
+        }
+      ],
+      "out": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n"
+    },
+    {
+      "name": "several jobs: one <file> each",
+      "jobs": [
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "title",
+              "text": "Käse & \"Brot\""
+            },
+            {
+              "key": "empty",
+              "text": " \n "
+            },
+            {
+              "key": "body",
+              "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+              "html": true
+            }
+          ]
+        },
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:13",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "it-CH",
+          "segments": [
+            {
+              "key": "title",
+              "text": "Hallo"
+            }
+          ]
+        }
+      ],
+      "out": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n  <file original=\"page:13\" source-language=\"de-CH\" target-language=\"it-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"9f02b107\" xml:space=\"preserve\">\n        <source>Hallo</source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n"
+    },
+    {
+      "name": "metadata, keys and plain text are escaped; CR LF becomes LF; characters XML cannot hold are dropped",
+      "jobs": [
+        {
+          "plugin": "Plugin & Co",
+          "reference": "node:5 & \"x\" <y>",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "a \"b\" & <c>",
+              "text": "Zeile 1\r\nZeile 2\rZeile 3 <nicht> & \u0001weg\ttab"
+            }
+          ]
+        }
+      ],
+      "out": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"node:5 &amp; &quot;x&quot; &lt;y&gt;\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Plugin &amp; Co\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"a &quot;b&quot; &amp; &lt;c&gt;\" datatype=\"plaintext\" extradata=\"32884ba4\" xml:space=\"preserve\">\n        <source>Zeile 1\nZeile 2\nZeile 3 &lt;nicht&gt; &amp; weg\ttab</source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n"
+    },
+    {
+      "name": "inline codes: pairs, void and self-closing tags, unmatched tags, comments, entities",
+      "jobs": [
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "codes",
+              "html": true,
+              "text": "<b><b>x</b></b> <i>offen <span title=\"a>b\">s</span> </u> <br/><!-- c --> &eacute; &#1; &#x1F389; &lt;tag&gt; &quot;q&quot;"
+            }
+          ]
+        }
+      ],
+      "out": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"codes\" extradata=\"df23d6f9\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;b&gt;</bpt><bpt id=\"2\">&lt;b&gt;</bpt>x<ept id=\"2\">&lt;/b&gt;</ept><ept id=\"1\">&lt;/b&gt;</ept> <ph id=\"3\">&lt;i&gt;</ph>offen <bpt id=\"4\">&lt;span title=\"a&gt;b\"&gt;</bpt>s<ept id=\"4\">&lt;/span&gt;</ept> <ph id=\"5\">&lt;/u&gt;</ph> <ph id=\"6\">&lt;br/&gt;</ph><ph id=\"7\">&lt;!-- c --&gt;</ph> <ph id=\"8\">&amp;eacute;</ph> <ph id=\"9\">&amp;#1;</ph> 🎉 &lt;tag&gt; \"q\"</source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n"
+    },
+    {
+      "name": "a job with only blank segments",
+      "jobs": [
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "title",
+              "text": "Käse & \"Brot\""
+            },
+            {
+              "key": "empty",
+              "text": " \n "
+            },
+            {
+              "key": "body",
+              "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+              "html": true
+            }
+          ]
+        },
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "a",
+              "text": ""
+            }
+          ]
+        }
+      ],
+      "error": "invalid_job"
+    },
+    {
+      "name": "no jobs",
+      "jobs": [],
+      "error": "invalid_job"
+    },
+    {
+      "name": "empty plugin",
+      "jobs": [
+        {
+          "plugin": "",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "a",
+              "text": "x"
+            }
+          ]
+        }
+      ],
+      "error": "invalid_job"
+    },
+    {
+      "name": "blank reference",
+      "jobs": [
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "  ",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "a",
+              "text": "x"
+            }
+          ]
+        }
+      ],
+      "error": "invalid_job"
+    },
+    {
+      "name": "control character in a language",
+      "jobs": [
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr\n",
+          "segments": [
+            {
+              "key": "a",
+              "text": "x"
+            }
+          ]
+        }
+      ],
+      "error": "invalid_job"
+    },
+    {
+      "name": "duplicate key (blank segments count)",
+      "jobs": [
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "a",
+              "text": "x"
+            },
+            {
+              "key": "a",
+              "text": ""
+            }
+          ]
+        }
+      ],
+      "error": "invalid_job"
+    },
+    {
+      "name": "empty key",
+      "jobs": [
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "",
+              "text": "x"
+            }
+          ]
+        }
+      ],
+      "error": "invalid_job"
+    },
+    {
+      "name": "control character in a key",
+      "jobs": [
+        {
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "segments": [
+            {
+              "key": "a\tb",
+              "text": "x"
+            }
+          ]
+        }
+      ],
+      "error": "invalid_job"
+    }
+  ],
+  "exportHtml": [
+    {
+      "name": "plain and HTML segments, blank ones left out",
+      "job": {
+        "plugin": "Contao-Supertext-Translation",
+        "reference": "page:12",
+        "sourceLanguage": "de-CH",
+        "targetLanguage": "fr-CH",
+        "segments": [
+          {
+            "key": "title",
+            "text": "Käse & \"Brot\""
+          },
+          {
+            "key": "empty",
+            "text": " \n "
+          },
+          {
+            "key": "body",
+            "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+            "html": true
+          }
+        ]
+      },
+      "out": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p></div>\n</body></html>\n"
+    },
+    {
+      "name": "metadata and keys are escaped",
+      "job": {
+        "plugin": "Contao-Supertext-Translation",
+        "reference": "node:5 & 'x' <y>",
+        "sourceLanguage": "de-CH",
+        "targetLanguage": "fr-CH",
+        "segments": [
+          {
+            "key": "a \"b\" & <c> d",
+            "text": "x"
+          }
+        ]
+      },
+      "out": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"node:5 &amp; &#39;x&#39; &lt;y&gt;\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 fd0c5087 a &quot;b&quot; &amp; &lt;c&gt; d\">\n</head><body>\n<div data-st-id=\"0\">x</div>\n</body></html>\n"
+    },
+    {
+      "name": "only blank segments",
+      "job": {
+        "plugin": "Contao-Supertext-Translation",
+        "reference": "page:12",
+        "sourceLanguage": "de-CH",
+        "targetLanguage": "fr-CH",
+        "segments": [
+          {
+            "key": "a",
+            "text": "  "
+          }
+        ]
+      },
+      "error": "invalid_job"
+    },
+    {
+      "name": "duplicate key",
+      "job": {
+        "plugin": "Contao-Supertext-Translation",
+        "reference": "page:12",
+        "sourceLanguage": "de-CH",
+        "targetLanguage": "fr-CH",
+        "segments": [
+          {
+            "key": "a",
+            "text": "x"
+          },
+          {
+            "key": "a",
+            "text": "y"
+          }
+        ]
+      },
+      "error": "invalid_job"
+    }
+  ],
+  "read": [
+    {
+      "name": "XLIFF as exported",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "files": [
+        {
+          "format": "xliff",
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "units": [
+            {
+              "key": "title",
+              "checksum": "8bc37cbf"
+            },
+            {
+              "key": "body",
+              "checksum": "72d77312"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "XLIFF with several <file> elements",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n  <file original=\"page:13\" source-language=\"de-CH\" target-language=\"it-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"9f02b107\" xml:space=\"preserve\">\n        <source>Hallo</source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "files": [
+        {
+          "format": "xliff",
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "units": [
+            {
+              "key": "title",
+              "checksum": "8bc37cbf"
+            },
+            {
+              "key": "body",
+              "checksum": "72d77312"
+            }
+          ]
+        },
+        {
+          "format": "xliff",
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:13",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "it-CH",
+          "units": [
+            {
+              "key": "title",
+              "checksum": "9f02b107"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "XLIFF from a CAT tool: BOM, CRLF, prefixed elements, groups, comments, no or broken checksums, duplicate ids",
+      "content": "﻿<?xml version=\"1.0\"?>\r\n<!-- tool -->\r\n<x:xliff xmlns:x=\"urn:oasis:names:tc:xliff:document:1.2\" version=\"1.2\"><x:file original=\"p&amp;1\" source-language=\"de\" target-language=\"fr\" product-name=\"P\" datatype=\"html\"><x:body><x:group id=\"g\"><x:trans-unit id=\"a\" extradata=\"ABCDEF12\"><x:source>A</x:source></x:trans-unit></x:group><x:trans-unit id=\"b\"><x:source>B</x:source></x:trans-unit><x:trans-unit id=\"a\" extradata=\"00000000\"><x:source>A2</x:source></x:trans-unit><x:trans-unit><x:source>no id</x:source></x:trans-unit></x:body></x:file></x:xliff>\r\n",
+      "files": [
+        {
+          "format": "xliff",
+          "plugin": "P",
+          "reference": "p&1",
+          "sourceLanguage": "de",
+          "targetLanguage": "fr",
+          "units": [
+            {
+              "key": "a",
+              "checksum": null
+            },
+            {
+              "key": "b",
+              "checksum": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "XLIFF without product-name",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "error": "missing_metadata"
+    },
+    {
+      "name": "XLIFF with an empty original",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "error": "missing_metadata"
+    },
+    {
+      "name": "XLIFF with a DOCTYPE",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE xliff [<!ENTITY e \"x\">]>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "error": "invalid_file"
+    },
+    {
+      "name": "XLIFF with an entity XML doesn't define",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>K&auml;se &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "error": "invalid_file"
+    },
+    {
+      "name": "XLIFF with mismatched tags",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</target>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "error": "invalid_file"
+    },
+    {
+      "name": "XLIFF cut off",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=",
+      "error": "invalid_file"
+    },
+    {
+      "name": "XML that isn't XLIFF",
+      "content": "<?xml version=\"1.0\"?><root/>",
+      "error": "invalid_file"
+    },
+    {
+      "name": "XLIFF without <file>",
+      "content": "<xliff version=\"1.2\"></xliff>",
+      "error": "invalid_file"
+    },
+    {
+      "name": "neither XLIFF nor HTML",
+      "content": "Hello",
+      "error": "invalid_file"
+    },
+    {
+      "name": "HTML as exported",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p></div>\n</body></html>\n",
+      "files": [
+        {
+          "format": "html",
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "units": [
+            {
+              "key": "title",
+              "checksum": "8bc37cbf"
+            },
+            {
+              "key": "body",
+              "checksum": "72d77312"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "HTML whose head a tool rewrote: attribute order, quotes, case",
+      "content": "<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<META content='Contao-Supertext-Translation' NAME='supertext:plugin'/>\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p></div>\n</body></html>\n",
+      "files": [
+        {
+          "format": "html",
+          "plugin": "Contao-Supertext-Translation",
+          "reference": "page:12",
+          "sourceLanguage": "de-CH",
+          "targetLanguage": "fr-CH",
+          "units": [
+            {
+              "key": "title",
+              "checksum": "8bc37cbf"
+            },
+            {
+              "key": "body",
+              "checksum": "72d77312"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "HTML without the metadata",
+      "content": "<!DOCTYPE html>\n<html><body><div data-st-id=\"0\">x</div></body></html>",
+      "error": "missing_metadata"
+    },
+    {
+      "name": "HTML without segment metadata",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p></div>\n</body></html>\n",
+      "error": "missing_metadata"
+    },
+    {
+      "name": "more than MAX_FILE_CHARACTERS (10,000,000) characters",
+      "repeat": {
+        "text": " ",
+        "times": 10000001
+      },
+      "error": "too_large"
+    }
+  ],
+  "import": [
+    {
+      "name": "XLIFF: translated; codes come from the current source, not from the file",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source><target>Fromage &amp; \"pain\"</target>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\">&lt;p&gt;</bpt>Un lien <bpt id=\"3\">&lt;a&gt;</bpt>gras<ept id=\"3\">&lt;/a&gt;</ept> <bpt id=\"2\">&lt;b&gt;</bpt>ici<ept id=\"2\">&lt;/b&gt;</ept>.<ph id=\"4\"/>Ligne 2<ept id=\"1\">&lt;/p&gt;</ept></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Fromage & \"pain\""
+        },
+        {
+          "key": "body",
+          "status": "ok",
+          "text": "<p>Un lien <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">gras</a> <b>ici</b>.<br>Ligne 2</p>"
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: the source changed since the export",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source><target>Fromage &amp; \"pain\"</target>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\">&lt;p&gt;</bpt>Un lien <bpt id=\"3\">&lt;a&gt;</bpt>gras<ept id=\"3\">&lt;/a&gt;</ept> <bpt id=\"2\">&lt;b&gt;</bpt>ici<ept id=\"2\">&lt;/b&gt;</ept>.<ph id=\"4\"/>Ligne 2<ept id=\"1\">&lt;/p&gt;</ept></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & Brot"
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "source_changed",
+          "text": "Fromage & \"pain\""
+        },
+        {
+          "key": "body",
+          "status": "ok",
+          "text": "<p>Un lien <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">gras</a> <b>ici</b>.<br>Ligne 2</p>"
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: no target, empty target, whitespace only",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source><target>  \n</target>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "untranslated",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: empty target element",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source><target/>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "untranslated",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: a code the source doesn't have",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\">&lt;p&gt;</bpt>Un lien <bpt id=\"3\">&lt;a&gt;</bpt>gras<ept id=\"3\">&lt;/a&gt;</ept> <bpt id=\"2\">&lt;b&gt;</bpt>ici<ept id=\"2\">&lt;/b&gt;</ept>.<ph id=\"9\"/>Ligne 2<ept id=\"1\">&lt;/p&gt;</ept></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: a bpt used as a ph",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\">&lt;p&gt;</bpt>Un lien <bpt id=\"3\">&lt;a&gt;</bpt>gras<ept id=\"3\">&lt;/a&gt;</ept> <bpt id=\"2\">&lt;b&gt;</bpt>ici<ept id=\"2\">&lt;/b&gt;</ept>.<bpt id=\"4\"/>Ligne 2<ept id=\"1\">&lt;/p&gt;</ept></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: end codes in the wrong order",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\"/>a <bpt id=\"2\"/>b<ept id=\"1\"/><ept id=\"2\"/></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: a start code without its end",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\"/>a <bpt id=\"2\"/>b<ept id=\"1\"/></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: a pair used twice",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\"/>a<ept id=\"1\"/><bpt id=\"1\"/>b<ept id=\"1\"/></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: a pair the translator dropped, a placeholder used twice",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\"/>Un lien<ph id=\"4\"/><ph id=\"4\"/>Ligne 2<ept id=\"1\"/></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "ok",
+          "text": "<p>Un lien<br><br>Ligne 2</p>"
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: code content is ignored (no script from the file)",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\">&lt;script&gt;</bpt>x<ph id=\"4\">&lt;script&gt;alert(1)&lt;/script&gt;</ph><ept id=\"1\">&lt;/script&gt;</ept></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "ok",
+          "text": "<p>x<br></p>"
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: text is escaped for HTML segments",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target>a &lt; b &amp; c &gt; d &lt;script&gt;</target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "ok",
+          "text": "a &lt; b &amp; c &gt; d &lt;script&gt;"
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: a code in a plain text segment",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source><target>Fromage <ph id=\"1\"/></target>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "invalid_markup",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "untranslated",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: <g> and <x> aren't used by the export",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><g id=\"1\">x</g></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: <mrk> is unwrapped",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source><target><mrk mtype=\"seg\" mid=\"1\">Fromage</mrk> &amp; <mrk mtype=\"seg\" mid=\"2\">pain</mrk></target>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Fromage & pain"
+        },
+        {
+          "key": "body",
+          "status": "untranslated",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: blank current segments are skipped, unknown keys missing, extra units ignored",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source><target>Fromage &amp; \"pain\"</target>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\">&lt;p&gt;</bpt>Un lien <bpt id=\"3\">&lt;a&gt;</bpt>gras<ept id=\"3\">&lt;/a&gt;</ept> <bpt id=\"2\">&lt;b&gt;</bpt>ici<ept id=\"2\">&lt;/b&gt;</ept>.<ph id=\"4\"/>Ligne 2<ept id=\"1\">&lt;/p&gt;</ept></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "empty",
+          "text": ""
+        },
+        {
+          "key": "new",
+          "text": "Neu"
+        },
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        }
+      ],
+      "out": [
+        {
+          "key": "new",
+          "status": "missing",
+          "text": null
+        },
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Fromage & \"pain\""
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: the second <file>",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source>\n      </trans-unit>\n    </body>\n  </file>\n  <file original=\"page:13\" source-language=\"de-CH\" target-language=\"it-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"9f02b107\" xml:space=\"preserve\">\n        <source>Hallo</source><target>Ciao</target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "file": 1,
+      "current": [
+        {
+          "key": "title",
+          "text": "Hallo"
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Ciao"
+        }
+      ]
+    },
+    {
+      "name": "XLIFF: the kind of segment changed (HTML now): checksum differs",
+      "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xliff version=\"1.2\" xmlns=\"urn:oasis:names:tc:xliff:document:1.2\">\n  <file original=\"page:12\" source-language=\"de-CH\" target-language=\"fr-CH\" datatype=\"html\" product-name=\"Contao-Supertext-Translation\" tool-id=\"supertext-sdk\">\n    <header>\n      <tool tool-id=\"supertext-sdk\" tool-name=\"Supertext SDK\"/>\n    </header>\n    <body>\n      <trans-unit id=\"title\" datatype=\"plaintext\" extradata=\"8bc37cbf\" xml:space=\"preserve\">\n        <source>Käse &amp; \"Brot\"</source><target>Fromage &amp; \"pain\"</target>\n      </trans-unit>\n      <trans-unit id=\"body\" extradata=\"72d77312\" xml:space=\"preserve\">\n        <source><bpt id=\"1\">&lt;p&gt;</bpt>Ein <bpt id=\"2\">&lt;b&gt;</bpt>fetter<ept id=\"2\">&lt;/b&gt;</ept> <bpt id=\"3\">&lt;a href=\"https://www.supertext.com/de?x=1&amp;amp;y=2\"&gt;</bpt>Link<ept id=\"3\">&lt;/a&gt;</ept>.<ph id=\"4\">&lt;br&gt;</ph>Zeile 2<ept id=\"1\">&lt;/p&gt;</ept></source><target><bpt id=\"1\">&lt;p&gt;</bpt>Un lien <bpt id=\"3\">&lt;a&gt;</bpt>gras<ept id=\"3\">&lt;/a&gt;</ept> <bpt id=\"2\">&lt;b&gt;</bpt>ici<ept id=\"2\">&lt;/b&gt;</ept>.<ph id=\"4\"/>Ligne 2<ept id=\"1\">&lt;/p&gt;</ept></target>\n      </trans-unit>\n    </body>\n  </file>\n</xliff>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse &amp; \"Brot\"",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "source_changed",
+          "text": "Fromage &amp; \"pain\""
+        }
+      ]
+    },
+    {
+      "name": "HTML: translated",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Fromage &amp; pain</div>\n<div data-st-id=\"1\"><p>Un <a href=\"https://www.supertext.com/fr?x=1&amp;y=2\">lien</a> <b>gras</b>.<br>Ligne 2</p></div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Fromage & pain"
+        },
+        {
+          "key": "body",
+          "status": "ok",
+          "text": "<p>Un <a href=\"https://www.supertext.com/fr?x=1&amp;y=2\">lien</a> <b>gras</b>.<br>Ligne 2</p>"
+        }
+      ]
+    },
+    {
+      "name": "HTML: Supertext rewrote the elements",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<p class=\"x\" data-st-id='0'>Fromage <b>&amp;</b>\n   pain</p>\n<div data-st-id=\"1\"><p>Un <a href=\"https://www.supertext.com/fr?x=1&amp;y=2\">lien</a> <b>gras</b>.<br>Ligne 2</p></div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Fromage & pain"
+        },
+        {
+          "key": "body",
+          "status": "ok",
+          "text": "<p>Un <a href=\"https://www.supertext.com/fr?x=1&amp;y=2\">lien</a> <b>gras</b>.<br>Ligne 2</p>"
+        }
+      ]
+    },
+    {
+      "name": "HTML: a segment missing from the body, an empty one",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n\n<div data-st-id=\"1\">  </div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "untranslated",
+          "text": null
+        },
+        {
+          "key": "body",
+          "status": "untranslated",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "HTML: the source changed since the export",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Fromage &amp; pain</div>\n<div data-st-id=\"1\"><p>Un <a href=\"https://www.supertext.com/fr?x=1&amp;y=2\">lien</a> <b>gras</b>.<br>Ligne 2</p></div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse"
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "source_changed",
+          "text": "Fromage & pain"
+        },
+        {
+          "key": "body",
+          "status": "ok",
+          "text": "<p>Un <a href=\"https://www.supertext.com/fr?x=1&amp;y=2\">lien</a> <b>gras</b>.<br>Ligne 2</p>"
+        }
+      ]
+    },
+    {
+      "name": "HTML: stray < in text is escaped",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p>a < b <b>c</b> <scrip</p></div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "body",
+          "status": "ok",
+          "text": "<p>a &lt; b <b>c</b> &lt;scrip</p>"
+        }
+      ]
+    },
+    {
+      "name": "HTML: a javascript: link",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p><a href=\" JavaScript:alert(1)\">x</a></p></div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "HTML: a scheme hidden behind entities",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p><a href=\"java&#115;cript&colon;alert(1)\">x</a></p></div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "HTML: relative, mailto and tel links",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p><a href=\"/fr/page?a=1#x\">a</a><a href=\"mailto:a@b.ch\">b</a><a href='tel:+41'>c</a><a href=fr.html>d</a></p></div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "body",
+          "status": "ok",
+          "text": "<p><a href=\"/fr/page?a=1#x\">a</a><a href=\"mailto:a@b.ch\">b</a><a href='tel:+41'>c</a><a href=fr.html>d</a></p>"
+        }
+      ]
+    },
+    {
+      "name": "HTML: a tag the source doesn't have",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p>x<script>alert(1)</script></p></div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "HTML: an attribute the source doesn't have",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p onclick=\"alert(1)\">x</p></div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "empty",
+          "text": " \n "
+        },
+        {
+          "key": "body",
+          "text": "<p>Ein <b>fetter</b> <a href=\"https://www.supertext.com/de?x=1&amp;y=2\">Link</a>.<br>Zeile&nbsp;2</p>",
+          "html": true
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    },
+    {
+      "name": "HTML: comments only as in the source",
+      "content": "<!DOCTYPE html>\n<html lang=\"de-CH\"><head><meta charset=\"utf-8\">\n<meta name=\"supertext:plugin\" content=\"Contao-Supertext-Translation\">\n<meta name=\"supertext:reference\" content=\"page:12\">\n<meta name=\"supertext:source-language\" content=\"de-CH\">\n<meta name=\"supertext:target-language\" content=\"fr-CH\">\n<meta name=\"supertext:segment\" content=\"0 8bc37cbf title\">\n<meta name=\"supertext:segment\" content=\"1 72d77312 body\">\n</head><body>\n<div data-st-id=\"0\">Käse &amp; &quot;Brot&quot;</div>\n<div data-st-id=\"1\"><p>x<!-- y --></p></div>\n</body></html>\n",
+      "current": [
+        {
+          "key": "title",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "body",
+          "html": true,
+          "text": "<p>x<!-- z --></p>"
+        }
+      ],
+      "out": [
+        {
+          "key": "title",
+          "status": "ok",
+          "text": "Käse & \"Brot\""
+        },
+        {
+          "key": "body",
+          "status": "invalid_markup",
+          "text": null
+        }
+      ]
+    }
+  ]
+}

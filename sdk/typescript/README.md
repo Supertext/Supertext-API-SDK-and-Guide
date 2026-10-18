@@ -150,6 +150,34 @@ The client builds the multipart upload itself instead of using `FormData`: the A
 
 Also exported: `authHeader()`, `retryDelayMs()`, `HtmlDocument.build()/parse()` (the document format), `planBatches()`, `errorForStatus()`, `errorForFileStatus()`.
 
+## Translation files
+
+`TranslationFiles` exports segments as an XLIFF 1.2 or HTML file, to be translated outside the API (a CAT tool, a translator, Supertext's web app), and imports the translated file again (test vectors: `spec/translation-file.json`). It doesn't call the API, so it comes from `supertext-sdk`, not `supertext-sdk/v1`.
+
+```ts
+import { TranslationFiles, type FileJob } from 'supertext-sdk'
+
+const job: FileJob = {
+  plugin: 'MyCms-Supertext-Translation', reference: 'page:12', sourceLanguage: 'de-CH', targetLanguage: 'fr-CH',
+  segments: [{ key: 'title', text: 'Käse & Brot' }, { key: 'body', text: '<p>Unser <b>neuer</b> Laden</p>', html: true }],
+}
+const xliff = TranslationFiles.exportXliff([job]) // or TranslationFiles.exportHtml(job)
+
+// Later, with the uploaded file:
+for (const file of TranslationFiles.read(uploaded)) { // one per job (<file>) in an XLIFF file
+  const current = await collectSegments(file.reference) // the item's segments as they are now
+  for (const r of TranslationFiles.importTranslations(file, current)) {
+    if (r.status === 'ok') await save(file.reference, file.targetLanguage, r.key, r.text!)
+    else if (r.status === 'source_changed') await askOrSave(r) // translated, but the source changed since
+    else report(r.key, r.status) // untranslated, invalid_markup, missing
+  }
+}
+```
+
+- `exportXliff` and `exportHtml` leave out blank segments; a job with nothing to translate, empty metadata or duplicate keys throws `TranslationFileError` (`code` `invalid_job`). `read` throws `too_large`, `invalid_file` or `missing_metadata`.
+- Each unit carries a checksum of its source (`TranslationFiles.checksum(segment)`); `source_changed` means the source differs from the exported one (or the file has no checksum): decide whether to keep the translation.
+- Imported files are untrusted: `read` refuses DTDs and entity declarations (nothing is ever expanded) and files over `MAX_FILE_CHARACTERS` (10,000,000). Markup in the result comes only from the current source: XLIFF inline codes are replaced by the source's tags, and an HTML file's translation may only use the tags, attributes and comments the source has, with safe URLs; anything else is `invalid_markup`.
+
 ## Testing against the stand-in
 
 The repo's stand-in API (`stand-in/stand-in.mjs`, Node, no dependencies) behaves like the live API where integrations went wrong before, and returns each text with `[<target>] ` in front:

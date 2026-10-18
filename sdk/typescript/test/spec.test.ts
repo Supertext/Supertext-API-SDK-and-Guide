@@ -13,6 +13,7 @@ import {
   planBatches,
   retryDelayMs,
 } from '../src/v1/index.js'
+import { TranslationFileError, TranslationFiles } from '../src/index.js'
 
 const spec = (name: string): any => JSON.parse(readFileSync(new URL(`../../../spec/${name}`, import.meta.url), 'utf8'))
 
@@ -133,5 +134,34 @@ describe('spec/batching.json', () => {
       { key: 'b', text: '😀😀', html: false },
     ]
     expect(planBatches(segments, 4).length).toBe(1)
+  })
+})
+
+describe('spec/translation-file.json', () => {
+  const s = spec('translation-file.json')
+  const code = (fn: () => unknown): string | null => {
+    try {
+      fn()
+      return null
+    } catch (e) {
+      expect(e).toBeInstanceOf(TranslationFileError)
+      return (e as TranslationFileError).code
+    }
+  }
+  for (const c of s.checksum) it(`checksum ${JSON.stringify(c.segment)}`, () => expect(TranslationFiles.checksum(c.segment)).toBe(c.out))
+  for (const c of s.exportXliff)
+    it(`exportXliff: ${c.name}`, () => (c.error ? expect(code(() => TranslationFiles.exportXliff(c.jobs))).toBe(c.error) : expect(TranslationFiles.exportXliff(c.jobs)).toBe(c.out)))
+  for (const c of s.exportHtml)
+    it(`exportHtml: ${c.name}`, () => (c.error ? expect(code(() => TranslationFiles.exportHtml(c.job))).toBe(c.error) : expect(TranslationFiles.exportHtml(c.job)).toBe(c.out)))
+  for (const c of s.read)
+    it(`read: ${c.name}`, () => {
+      const content: string = c.repeat ? c.repeat.text.repeat(c.repeat.times) : c.content
+      if (c.error) return expect(code(() => TranslationFiles.read(content))).toBe(c.error)
+      expect(TranslationFiles.read(content).map((f) => ({ ...f }))).toEqual(c.files)
+    })
+  for (const c of s.import)
+    it(`import: ${c.name}`, () => expect(TranslationFiles.importTranslations(TranslationFiles.read(c.content)[c.file ?? 0]!, c.current)).toEqual(c.out))
+  it('a file not returned by read() is refused', () => {
+    expect(code(() => TranslationFiles.importTranslations({ format: 'html', plugin: 'P', reference: 'r', sourceLanguage: 'de', targetLanguage: 'fr', units: [] }, []))).toBe('invalid_file')
   })
 })

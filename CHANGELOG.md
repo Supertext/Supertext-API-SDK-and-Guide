@@ -4,6 +4,10 @@ All SDKs in this repository share one version. Format: one section per release, 
 
 ## Unreleased
 
+### Added
+
+- **Translation files** (all five SDKs, `spec/translation-file.json`, integration guide → *Translation files: XLIFF and HTML*): export an item's segments as **XLIFF 1.2** (`exportXliff(jobs)`, one `<file>` per job, formatting as `<bpt>`/`<ept>`/`<ph>` inline codes) or **HTML** (`exportHtml(job)`, the API's document with the job's metadata in its head), translate them outside the API (a CAT tool, a translator, Supertext's web app), then `read(content)` the file and `importTranslations(file, currentSegments)`: per segment `ok`, `source_changed` (checksum differs from the export), `untranslated`, `invalid_markup` or `missing`. Imported files are treated as untrusted: size limit, no DTDs, markup only from the current source (XLIFF codes replaced by the source's tags; HTML only with the source's tags and attributes and safe links). Not versioned with the API: TypeScript `TranslationFiles` from `supertext-sdk`, PHP `Supertext\Sdk\Files\TranslationFiles`, Python `supertext.files`, .NET `Supertext.Sdk.Files.TranslationFiles`, Java `com.supertext.sdk.files.TranslationFiles`; errors `invalid_job`, `invalid_file`, `missing_metadata`, `too_large`.
+
 ## 0.4.0 — 2026-10-17
 
 Behaviour change for integrations: a target language nobody mapped now uses its default where one is obvious, instead of failing.

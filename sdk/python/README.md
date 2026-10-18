@@ -163,6 +163,36 @@ v1.SupertextClient(
 
 A blank key doesn't fail in the constructor, only on the first request. The transport (`supertext.transport`, re-exported from `supertext.v1`) is shared by all API versions. A custom `transport` raises `OSError` when there's no HTTP answer; the client turns that into `transport_error`.
 
+## Translation files
+
+`supertext.files` exports segments as an XLIFF 1.2 or HTML file, to be translated outside the API (a CAT tool, a translator, Supertext's web app), and imports the translated file again (test vectors: `spec/translation-file.json`). It doesn't call the API, so it isn't versioned with it.
+
+```python
+from supertext import files
+from supertext.files import FileJob, FileSegment
+
+job = FileJob("MyCms-Supertext-Translation", "page:12", "de-CH", "fr-CH", [
+    FileSegment("title", "Käse & Brot"),
+    FileSegment("body", "<p>Unser <b>neuer</b> Laden</p>", html=True),
+])
+xliff = files.export_xliff([job])                      # or files.export_html(job)
+
+# Later, with the uploaded file:
+for file in files.read(uploaded):                      # one per job (<file>) in an XLIFF file
+    current = collect_segments(file.reference)         # the item's segments as they are now
+    for result in files.import_translations(file, current):
+        if result.status == "ok":
+            save(file.reference, file.target_language, result.key, result.text)
+        elif result.status == "source_changed":        # translated, but the source changed since
+            ask_or_save(result)
+        else:                                          # untranslated, invalid_markup, missing
+            report(result.key, result.status)
+```
+
+- `export_xliff` and `export_html` leave out blank segments; a job with nothing to translate, empty metadata or duplicate keys raises `TranslationFileError` (`code` `invalid_job`). `read` raises `too_large`, `invalid_file` or `missing_metadata`.
+- Each unit carries a checksum of its source; `checksum(segment)` computes it. `source_changed` means the source differs from the exported one (or the file has no checksum): decide whether to keep the translation.
+- Imported files are untrusted: `read` refuses DTDs and entity declarations (nothing is ever expanded) and files over `MAX_FILE_CHARACTERS` (10,000,000). Markup in the result comes only from the current source: XLIFF inline codes are replaced by the source's tags, and an HTML file's translation may only use the tags, attributes and comments the source has, with safe URLs; anything else is `invalid_markup`.
+
 ## Testing your integration
 
 Use the stand-in API from this repository instead of the live API: it checks the request the way the live API does and puts the target code in front of every text (`[de-CH] …`).

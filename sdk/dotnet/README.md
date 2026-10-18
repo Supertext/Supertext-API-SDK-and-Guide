@@ -123,6 +123,37 @@ Version reports to the Supertext Commando Center and its ping endpoint are [Supe
 
 Also public: `SupertextClient.AuthHeader(key)`, `SupertextClient.RetryDelayMs(attempt, retryAfter)`, `HtmlDocument.Build` / `Parse` if you build documents yourself.
 
+## Translation files
+
+For texts translated outside the API (a CAT tool, a translator, Supertext's web app), `Supertext.Sdk.Files.TranslationFiles` exports segments as an XLIFF 1.2 file (one `<file>` per job) or as an HTML file (the `HtmlDocument` document with the job's metadata in its head), and imports them again. It isn't tied to an API version and makes no requests (test vectors: `spec/translation-file.json`).
+
+```csharp
+using Supertext.Sdk.Files;
+
+// Export: one job per item and language pair. Reference is whatever you need to find the item again.
+var job = new FileJob("My-CMS-Plugin", "page:12", "de", "fr-CH", [
+    new FileSegment("title", "Käse & Brot"),
+    new FileSegment("body", "<p>Ein <b>fetter</b> Text.</p>", Html: true),
+]);
+string xliff = TranslationFiles.ExportXliff([job]);   // or TranslationFiles.ExportHtml(job)
+
+// Later: read the uploaded file, find each item by Reference, collect its current segments again, import.
+foreach (var file in TranslationFiles.Read(uploaded))
+{
+    var current = CollectSegments(file.Reference);   // your code: the item's current FileSegments
+    foreach (var s in TranslationFiles.ImportTranslations(file, current))
+    {
+        if (s.Status == ImportStatuses.Ok) Save(file.Reference, file.TargetLanguage, s.Key, s.Text!);
+        else if (s.Status == ImportStatuses.SourceChanged) AskOrSave(s);   // the source changed since the export: you decide
+        else Report(s.Key, s.Status);                                      // untranslated, invalid_markup, missing
+    }
+}
+```
+
+`ImportTranslations` returns one `ImportedSegment(Key, Status, Text)` per non-blank current segment, in their order; `Text` is set for `ok` and `source_changed` only. Statuses (`ImportStatuses`): `ok`, `source_changed` (the checksum in the file differs from the current source's, or the file has none), `untranslated`, `invalid_markup` (the translation uses markup the current source doesn't have), `missing` (no such key in the file). Errors are a `TranslationFileException` with `Code` (`TranslationFileErrorCodes`): `invalid_job` (export: no jobs, empty or control characters in metadata or keys, duplicate keys, only blank segments), `invalid_file`, `missing_metadata`, `too_large`.
+
+Imported files are untrusted: `Read` refuses DTDs (a DOCTYPE or any `<!` declaration is never expanded) and files over `TranslationFiles.MaxFileCharacters` (10,000,000). Markup comes only from your current source: XLIFF codes are replaced by the source's tags, and HTML translations may only use the source's tags, attributes and comments, with safe URLs (relative, http, https, mailto, tel).
+
 ## Testing against the stand-in
 
 The repository's stand-in API (`stand-in/stand-in.mjs`, Node 18+) behaves like the live API where integrations went wrong before, and prefixes each translated segment with the target code (`[de-CH]`):

@@ -139,6 +139,35 @@ SupertextClient.builder(apiKey)
 
 `translateTexts(segments, target, source, politeness, maxCharacters)` sets the document size (default `SupertextClient.DEFAULT_MAX_CHARACTERS`, 900,000).
 
+## Translation files
+
+For texts translated outside the API (a CAT tool, a translator, Supertext's web app), `com.supertext.sdk.files.TranslationFiles` exports segments as an XLIFF 1.2 file (one `<file>` per job) or as the HTML document `HtmlDocument.build` makes, with the job's metadata, and imports the translated file again. Not tied to an API version: nothing here calls the API. Behaviour shared by all Supertext SDKs: `spec/translation-file.json`.
+
+```java
+// Export: one job per item and target language; reference is whatever finds the item again.
+FileJob job = new FileJob("MyCms-Supertext-Translation", "page:12", "de-CH", "fr-CH", List.of(
+        new FileSegment("title", page.getTitle()),
+        new FileSegment("body", page.getBodyHtml(), true)));
+String xliff = TranslationFiles.exportXliff(List.of(job));   // or TranslationFiles.exportHtml(job)
+
+// Later, with the translated file the user uploaded:
+for (TranslationFile file : TranslationFiles.read(uploaded)) {
+    Page page = pages.find(file.getReference());
+    List<FileSegment> current = page.segments();               // collected again, the same way as for the export
+    for (ImportedSegment s : TranslationFiles.importTranslations(file, current)) {
+        switch (s.getStatus()) {
+            case OK: page.setTranslation(file.getTargetLanguage(), s.getKey(), s.getText()); break;
+            case SOURCE_CHANGED: report(s, "the source changed since the export"); break; // or write it anyway: your decision
+            default: report(s, s.getStatus().value());          // untranslated, invalid_markup, missing
+        }
+    }
+}
+```
+
+`checksum(segment)` (FNV-1a of the packed segment) only detects changed sources: `SOURCE_CHANGED` means the text was translated, but the source differs from the export (or the file has no checksum). Errors are a `TranslationFileException` with `getCode()` (`TranslationFileErrorCode`: `invalid_job` when exporting; `invalid_file`, `missing_metadata`, `too_large` when reading).
+
+Uploaded files are untrusted: `read` refuses DTDs and other `<!` declarations (no entity is ever expanded) and files over `TranslationFiles.MAX_FILE_CHARACTERS` (10,000,000 characters), and `importTranslations` takes markup only from the current source: XLIFF codes are replaced by the source's tags, and HTML translations may only use the source's tags, attributes and comments, with safe URLs (relative, http, https, mailto, tel).
+
 ## Testing against the stand-in
 
 The repository's stand-in behaves like the live API where integrations went wrong (auth header, language codes, politeness, `text/html`, 429):

@@ -20,7 +20,8 @@ Contents:
 12. [Security](#12-security)
 13. [Testing](#13-testing)
 14. [The API key check and version reports](#14-the-api-key-check-and-version-reports)
-15. [Checklist](#15-checklist)
+15. [Translation files: XLIFF and HTML](#15-translation-files-xliff-and-html)
+16. [Checklist](#16-checklist)
 
 The HTTP details are summarised in the [API reference](api-reference.md).
 
@@ -312,7 +313,27 @@ With `STAND_IN_SAMPLES` the stand-in returns real translations for known texts, 
 
 **Version reports** to the Supertext **Commando Center** (which plugin, system and runtime version each site runs, whether its API key works, whether the site is reachable) are not part of the SDK. Plugins use **Supertext Plugin Health** from the Commando Center repository ([Commando-Center-Supertext-Translation → `plugin-health/`](https://github.com/Supertext/Commando-Center-Supertext-Translation/tree/main/plugin-health)), bundled like the SDK, which also answers the center's ping. It doesn't depend on the SDK: pass the SDK's `checkApiKey()` and `apiKeyFingerprint()` as its key checker and `SDK_VERSION` as `sdkVersion`. The protocol is the center's `docs/DEVELOPER.md` → *Report protocol*.
 
-## 15. Checklist
+## 15. Translation files: XLIFF and HTML
+
+An alternative to the API: the integration exports an item's segments as a file, someone translates it elsewhere (a CAT tool such as Trados, memoQ or Phrase; a translator; Supertext's web app), and the integration imports it again. The SDKs do the file formats (`TranslationFiles`; [`spec/translation-file.json`](../spec/translation-file.json)); the integration does the buttons, finding the item again and writing back, exactly as it writes back API translations. Nothing here calls the API, so it isn't in the `v1` namespace: TypeScript `TranslationFiles` from `supertext-sdk`, PHP `Supertext\Sdk\Files\TranslationFiles`, Python `supertext.files`, .NET `Supertext.Sdk.Files.TranslationFiles`, Java `com.supertext.sdk.files.TranslationFiles`.
+
+**A job** is one item in one target language: `plugin` (the integration's repository name), `reference` (whatever the integration needs to find the item again, such as `page:12`; the SDK doesn't read it), `sourceLanguage`, `targetLanguage`, and the same keyed segments `translateTexts` takes (key unique in the job, text, `html`). Blank segments are left out; a job with nothing to translate is refused (`invalid_job`).
+
+**Two formats:**
+
+- **XLIFF 1.2** (`exportXliff(jobs)`): one `<file>` per job, so a bulk export of many items or languages is one file. `original` holds the reference, `product-name` the plugin, one `<trans-unit>` per segment with the key as `id` and a checksum of the source in `extradata`. Formatting in HTML segments becomes inline codes (`<bpt>`/`<ept>` for a tag pair, `<ph>` for `<br>`, images and the like) that CAT tools protect, so translators see text and tags they can move but not break.
+- **HTML** (`exportHtml(job)`): the document the API gets (section 7), with the job's metadata and each segment's key and checksum as `<meta name="supertext:…">` in its head. It can be uploaded to Supertext's web app or given to anyone who translates HTML; translators must leave the head and the `data-st-id` attributes alone. An HTML file can't mark a segment as untranslated: imported unchanged, it writes the source text back.
+
+**Importing** is two steps, because the integration needs the metadata before it can collect the current content:
+
+1. `read(content)` checks the file and returns its jobs (XLIFF: one per `<file>`; HTML: one) with `plugin`, `reference`, the languages and the keys. Check that `plugin` is yours and the target language is one the site has, then load the item by `reference` (with the user's permissions).
+2. `importTranslations(file, currentSegments)` with the item's segments collected again exactly as for the export. One result per non-blank segment: `ok` (write it back), `source_changed` (the source was edited after the export: show the count and let the editor choose to apply or skip, default skip), `untranslated`, `invalid_markup` (the translation broke or added markup) or `missing` (the file doesn't have that key, e.g. a field added since). Write back with the same rules as API results (section 11): don't overwrite existing translations without asking, new translations unpublished for review, and tell the user how many segments were imported and why the others weren't.
+
+**Safety: an imported file is untrusted input.** `read` refuses files over 10,000,000 characters (`too_large`), anything that isn't XLIFF or HTML or isn't well-formed (`invalid_file`; a DTD or entity declaration is always refused, so nothing is expanded), and files without the metadata (`missing_metadata`). `importTranslations` takes markup only from the current source: XLIFF codes are replaced by the source's own tags (the code content in the file is ignored), and an HTML translation may only use tags, attributes and comments the source segment has, with links that are relative or `http`, `https`, `mailto` or `tel`; text is escaped. Only accept uploads from users who may edit the item, and limit the upload size before reading.
+
+**In the plugin UI:** *Export for translation* (format: XLIFF or HTML; target languages; for list views several items) and *Import translation* (file upload, then a summary: imported, skipped because the source changed, untranslated, invalid). File names like `<plugin>-<reference>-<target>.xlf` help people keep files apart; the SDK doesn't depend on them.
+
+## 16. Checklist
 
 - [ ] `Authorization: Supertext-Auth-Key <key>`, pasted prefix stripped, blank key = no request
 - [ ] Language mapping per CMS language (combo box of the Supertext targets, `suggestTarget` preselected), defaults only from `Languages.defaultTarget`; `unsupported_language` shown with where to map it; formal/informal only where the target supports it
@@ -327,4 +348,5 @@ With `STAND_IN_SAMPLES` the stand-in returns real translations for known texts, 
 - [ ] Key stored safely, never logged, server-side only; permissions checked
 - [ ] Key checked on every settings save (and when an environment key changes, on 401/403, on *Test connection*), result shown with both links
 - [ ] Version reports and the ping endpoint with Supertext Plugin Health (*Send version information to Supertext* setting, on by default; reports from server code only)
+- [ ] Translation files (if offered): `TranslationFiles` for both formats, the item found by `reference`, segments collected again for the import, `source_changed` asked about, upload size and permissions checked
 - [ ] Tests with a fake HTTP layer and against the stand-in; a manual round against the live API

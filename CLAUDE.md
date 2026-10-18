@@ -10,7 +10,8 @@ Every change that affects behaviour, the public API, options or the repo structu
 
 - The vectors in `spec/` define the behaviour. Every SDK's tests load them; every SDK passes `node stand-in/conformance.mjs -- <its conformance program>`.
 - A behaviour change starts with the vector, then **all five SDKs**, their tests, the guide and the changelog, in one commit. Never let one SDK drift.
-- Same concepts and defaults everywhere (`translateTexts`, `translateHtml`, single steps, `getFeatures`, `Languages`, `HtmlDocument`, one error type with the fixed string codes), named the way each language expects.
+- Same concepts and defaults everywhere (`translateTexts`, `translateHtml`, single steps, `getFeatures`, `Languages`, `HtmlDocument`, one error type with the fixed string codes, `TranslationFiles`), named the way each language expects.
+- **Translation files** (`TranslationFiles`, `spec/translation-file.json`): XLIFF 1.2 and HTML export/import, outside `v1` (no API calls). Imported files are untrusted: keep the size limit, the hand-written XML parser that refuses any `<!` declaration, no recursion on nesting, no allocation by positions from the file, and markup only from the integration's current source.
 - No runtime dependencies in the SDKs. No logging inside the SDKs. The API key never appears in messages, details, `toString` or logs.
 
 ## Supertext account and API key links (always)

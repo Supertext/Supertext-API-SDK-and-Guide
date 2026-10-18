@@ -6,6 +6,11 @@ namespace Supertext\Sdk\Tests;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Supertext\Sdk\Files\FileJob;
+use Supertext\Sdk\Files\FileSegment;
+use Supertext\Sdk\Files\TranslationFile;
+use Supertext\Sdk\Files\TranslationFileError;
+use Supertext\Sdk\Files\TranslationFiles;
 use Supertext\Sdk\Http\HttpResponse;
 use Supertext\Sdk\V1\Client;
 use Supertext\Sdk\V1\HtmlDocument;
@@ -336,5 +341,142 @@ final class SpecTest extends TestCase
         foreach (array_keys(self::spec('errors.json')['codes']) as $code) {
             self::assertContains($code, $constants);
         }
+    }
+
+    // ---- translation-file.json ----
+
+    /** @param array<string, mixed> $segment */
+    private static function fileSegment(array $segment): FileSegment
+    {
+        return new FileSegment((string) $segment['key'], (string) $segment['text'], (bool) ($segment['html'] ?? false));
+    }
+
+    /**
+     * @param list<array<string, mixed>> $segments
+     *
+     * @return list<FileSegment>
+     */
+    private static function fileSegments(array $segments): array
+    {
+        return array_map(self::fileSegment(...), $segments);
+    }
+
+    /** @param array<string, mixed> $job */
+    private static function fileJob(array $job): FileJob
+    {
+        return new FileJob((string) $job['plugin'], (string) $job['reference'], (string) $job['sourceLanguage'], (string) $job['targetLanguage'], self::fileSegments($job['segments']));
+    }
+
+    /** The error code thrown by $fn, or null when it returns. */
+    private static function fileErrorCode(callable $fn): ?string
+    {
+        try {
+            $fn();
+
+            return null;
+        } catch (TranslationFileError $e) {
+            return $e->errorCode;
+        }
+    }
+
+    /** @return array<string, array{array<string, mixed>}> */
+    public static function translationFileChecksumCases(): array
+    {
+        return self::named(self::spec('translation-file.json')['checksum']);
+    }
+
+    /** @param array<string, mixed> $case */
+    #[DataProvider('translationFileChecksumCases')]
+    public function testTranslationFileChecksum(array $case): void
+    {
+        self::assertSame($case['out'], TranslationFiles::checksum($case['segment']));
+        self::assertSame($case['out'], TranslationFiles::checksum(new FileSegment('k', $case['segment']['text'], $case['segment']['html'] ?? false)));
+    }
+
+    /** @return array<string, array{array<string, mixed>}> */
+    public static function translationFileExportXliffCases(): array
+    {
+        return self::named(self::spec('translation-file.json')['exportXliff']);
+    }
+
+    /** @param array<string, mixed> $case */
+    #[DataProvider('translationFileExportXliffCases')]
+    public function testTranslationFileExportXliff(array $case): void
+    {
+        $export = static fn (): string => TranslationFiles::exportXliff(array_map(self::fileJob(...), $case['jobs']));
+        if (isset($case['error'])) {
+            self::assertSame($case['error'], self::fileErrorCode($export));
+        } else {
+            self::assertSame($case['out'], $export());
+        }
+    }
+
+    /** @return array<string, array{array<string, mixed>}> */
+    public static function translationFileExportHtmlCases(): array
+    {
+        return self::named(self::spec('translation-file.json')['exportHtml']);
+    }
+
+    /** @param array<string, mixed> $case */
+    #[DataProvider('translationFileExportHtmlCases')]
+    public function testTranslationFileExportHtml(array $case): void
+    {
+        $export = static fn (): string => TranslationFiles::exportHtml(self::fileJob($case['job']));
+        if (isset($case['error'])) {
+            self::assertSame($case['error'], self::fileErrorCode($export));
+        } else {
+            self::assertSame($case['out'], $export());
+        }
+    }
+
+    /** @return array<string, array{array<string, mixed>}> */
+    public static function translationFileReadCases(): array
+    {
+        return self::named(self::spec('translation-file.json')['read']);
+    }
+
+    /** @param array<string, mixed> $case */
+    #[DataProvider('translationFileReadCases')]
+    public function testTranslationFileRead(array $case): void
+    {
+        $content = isset($case['repeat']) ? str_repeat($case['repeat']['text'], $case['repeat']['times']) : $case['content'];
+        if (isset($case['error'])) {
+            self::assertSame($case['error'], self::fileErrorCode(static fn () => TranslationFiles::read($content)));
+
+            return;
+        }
+        $files = array_map(static fn (TranslationFile $f): array => [
+            'format' => $f->format,
+            'plugin' => $f->plugin,
+            'reference' => $f->reference,
+            'sourceLanguage' => $f->sourceLanguage,
+            'targetLanguage' => $f->targetLanguage,
+            'units' => array_map(static fn ($u): array => ['key' => $u->key, 'checksum' => $u->checksum], $f->units),
+        ], TranslationFiles::read($content));
+        self::assertSame($case['files'], $files);
+    }
+
+    /** @return array<string, array{array<string, mixed>}> */
+    public static function translationFileImportCases(): array
+    {
+        return self::named(self::spec('translation-file.json')['import']);
+    }
+
+    /** @param array<string, mixed> $case */
+    #[DataProvider('translationFileImportCases')]
+    public function testTranslationFileImport(array $case): void
+    {
+        $file = TranslationFiles::read($case['content'])[$case['file'] ?? 0];
+        $out = array_map(
+            static fn ($s): array => ['key' => $s->key, 'status' => $s->status, 'text' => $s->text],
+            TranslationFiles::importTranslations($file, self::fileSegments($case['current'])),
+        );
+        self::assertSame($case['out'], $out);
+    }
+
+    public function testTranslationFileNotFromReadIsRefused(): void
+    {
+        $file = new TranslationFile(TranslationFile::HTML, 'P', 'r', 'de', 'fr', []);
+        self::assertSame(TranslationFileError::INVALID_FILE, self::fileErrorCode(static fn () => TranslationFiles::importTranslations($file, [])));
     }
 }
