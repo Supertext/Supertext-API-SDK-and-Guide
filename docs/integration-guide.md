@@ -322,7 +322,7 @@ An alternative to the API: the integration exports an item's segments as a file,
 **Two formats:**
 
 - **XLIFF 1.2** (`exportXliff(jobs)`): one `<file>` per job, so a bulk export of many items or languages is one file. `original` holds the reference, `product-name` the plugin, one `<trans-unit>` per segment with the key as `id` and a checksum of the source in `extradata`. Formatting in HTML segments becomes inline codes (`<bpt>`/`<ept>` for a tag pair, `<ph>` for `<br>`, images and the like) that CAT tools protect, so translators see text and tags they can move but not break.
-- **HTML** (`exportHtml(job)`): the document the API gets (section 7), with the job's metadata and each segment's key and checksum as `<meta name="supertext:…">` in its head. It can be uploaded to Supertext's web app or given to anyone who translates HTML; translators must leave the head and the `data-st-id` attributes alone. An HTML file can't mark a segment as untranslated: imported unchanged, it writes the source text back.
+- **HTML** (`exportHtml(job)`): the document the API gets (section 7), with the job's metadata and each segment's key and checksum as `<meta name="supertext:…">` in its head. It can be uploaded to Supertext's web app, which keeps the head and the `data-st-id` attributes (confirmed October 2026), so the translated file imports as it is; anyone else who translates HTML must leave both alone. An HTML file can't mark a segment as untranslated: imported unchanged, it writes the source text back.
 
 **Importing** is two steps, because the integration needs the metadata before it can collect the current content:
 

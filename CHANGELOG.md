@@ -4,6 +4,10 @@ All SDKs in this repository share one version. Format: one section per release, 
 
 ## Unreleased
 
+### Changed
+
+- Integration guide → *Translation files*: Supertext's web app keeps an HTML file's head and `data-st-id` attributes (confirmed), so the translated file imports as it is.
+
 ## 0.5.0 — 2026-10-18
 
 New: translation files, an alternative to the API for integrations. Nothing changes for existing API use.
