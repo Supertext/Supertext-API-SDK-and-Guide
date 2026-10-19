@@ -250,4 +250,94 @@ class SpecVectorsTest {
             assertEquals(c.get("batches"), SupertextClient.batches(segments, max));
         }));
     }
+
+    // ------------------------------------------------------------ corrections.json
+
+    private static String ackBody(int from, int to, String version) {
+        StringBuilder out = new StringBuilder("{\"corrections\":[");
+        for (int i = from; i <= to; i++) {
+            out.append(i == from ? "" : ",").append("{\"id\":\"").append(i).append("\",\"version\":\"").append(version).append("\"}");
+        }
+        return out.append("]}").toString();
+    }
+
+    @TestFactory
+    Stream<DynamicTest> corrections() {
+        return Spec.list(Spec.load("corrections.json"), "scenarios").stream().map(c -> DynamicTest.dynamicTest(
+                "corrections " + c.get("name"), () -> {
+                    java.util.Deque<Map<String, Object>> exchanges = new java.util.ArrayDeque<>(Spec.list(c, "exchanges"));
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> generate = (Map<String, Object>) c.get("generate");
+                    String version = generate == null ? "" : (String) generate.get("version");
+                    FakeTransport transport = new FakeTransport().handler(request -> {
+                        Map<String, Object> x = exchanges.poll();
+                        if (x == null) {
+                            throw new AssertionError("unexpected " + request.getMethod() + " " + request.getUri());
+                        }
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> req = (Map<String, Object>) x.get("request");
+                        assertEquals(req.get("method"), request.getMethod());
+                        assertEquals("https://review.test/v1/" + req.get("path"), request.getUri().toString());
+                        String body = FakeTransport.body(request);
+                        if (req.containsKey("body")) {
+                            assertEquals(req.get("body"), body);
+                        }
+                        if (req.containsKey("bodyIds")) {
+                            List<?> ids = (List<?>) req.get("bodyIds");
+                            assertEquals(ackBody(((Double) ids.get(0)).intValue(), ((Double) ids.get(1)).intValue(), version), body);
+                        }
+                        if (body != null) {
+                            assertEquals("application/json", request.getHeaders().get("Content-Type"));
+                        }
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> res = (Map<String, Object>) x.get("response");
+                        return new com.supertext.sdk.Transport.Response(((Double) res.get("status")).intValue(), java.util.Collections.emptyMap(), (String) res.get("body"));
+                    });
+                    SupertextClient client = SupertextClient.builder("key-1").baseUrl("https://review.test/v1/").transport(transport)
+                            .sleeper(ms -> { }).build();
+                    List<Correction> corrections = new java.util.ArrayList<>();
+                    if (generate != null) {
+                        for (int i = 1; i <= ((Double) generate.get("count")).intValue(); i++) {
+                            corrections.add(new Correction(String.valueOf(i), "", null, "", Politeness.DEFAULT, "", "", "", "", "", version));
+                        }
+                    } else if (c.containsKey("corrections")) {
+                        for (Map<String, Object> item : Spec.list(c, "corrections")) {
+                            corrections.add(new Correction((String) item.get("id"), "", null, "", Politeness.DEFAULT, "", "", "", "", "", (String) item.get("version")));
+                        }
+                    }
+                    org.junit.jupiter.api.function.ThrowingSupplier<Object> run = () -> {
+                        if ("pending".equals(c.get("call"))) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> o = (Map<String, Object>) c.get("options");
+                            String p = (String) o.get("politeness");
+                            List<Object> out = new java.util.ArrayList<>();
+                            for (Correction x : client.pendingCorrections((String) o.get("targetLang"), (String) o.get("sourceLang"),
+                                    p == null ? null : Politeness.fromValue(p))) {
+                                Map<String, Object> m = new java.util.LinkedHashMap<>();
+                                m.put("id", x.getId());
+                                m.put("segmentId", x.getSegmentId());
+                                m.put("sourceLang", x.getSourceLang());
+                                m.put("targetLang", x.getTargetLang());
+                                m.put("politeness", x.getPoliteness().value());
+                                m.put("sourceHtml", x.getSourceHtml());
+                                m.put("previousHtml", x.getPreviousHtml());
+                                m.put("html", x.getHtml());
+                                m.put("status", x.getStatus());
+                                m.put("correctedAt", x.getCorrectedAt());
+                                m.put("version", x.getVersion());
+                                out.add(m);
+                            }
+                            return out;
+                        }
+                        return (double) client.acknowledgeCorrections(corrections);
+                    };
+                    if (c.containsKey("error")) {
+                        SupertextException e = assertThrows(SupertextException.class, run::get);
+                        assertEquals(c.get("error"), e.getCode().value());
+                    } else {
+                        assertEquals(c.get("result"), run.get());
+                    }
+                    assertEquals(0, exchanges.size());
+                }));
+    }
 }

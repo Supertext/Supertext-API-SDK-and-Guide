@@ -62,6 +62,18 @@ Deletes the uploaded file and its translation. Files expire after 24 hours anywa
 
 How the SDKs map these to error codes: [`spec/errors.json`](../spec/errors.json).
 
+## Review service (Supertext Localization Review)
+
+Not part of Supertext's API: the [review service](https://github.com/Supertext/Localization-Review-Supertext-Translation) answers the endpoints above like Supertext (same paths, fields, statuses and errors, the customer's key passed on) and adds two of its own. Against Supertext's API they answer 404. SDK behaviour: [`spec/corrections.json`](../spec/corrections.json).
+
+### `GET review/corrections`
+
+Query (all optional): `target_lang`, `source_lang`, `politeness` (`default`, `more`, `less`), `after` (paging), `limit` (1–500, default 500). Answer `200` `{ "corrections": [{ "id", "st_id", "source_lang" (null: detected), "target_lang", "politeness", "source_html", "previous_html", "html", "status", "corrected_at", "version" }], "next_after": "<id>" | null }`: corrections of this key and plugin (the User-Agent's plugin name) that the plugin hasn't received yet. `st_id` is the `data-st-id` the plugin sent; `previous_html` what it received last for that place. Pass `next_after` as `after` for the next page.
+
+### `POST review/corrections/acknowledge`
+
+JSON body `{ "corrections": [{ "id", "version" }] }` (at most 1000): the plugin wrote these into the CMS. Answer `200` `{ "acknowledged": n }`; only a still-current `version` counts.
+
 ## Commando Center (version reports)
 
 Not part of the Supertext API and not part of the SDKs: plugins report their versions with Supertext Plugin Health. The protocol (report schema, the plugin's ping endpoint) and Plugin Health are in [Commando-Center-Supertext-Translation](https://github.com/Supertext/Commando-Center-Supertext-Translation) (`docs/DEVELOPER.md` → *Report protocol*, `plugin-health/`).

@@ -112,6 +112,18 @@ Every failure is a `SupertextException` (unchecked) with `getCode()` (`ErrorCode
 | `timeout` | The translation took too long. Try again, or raise the timeout. |
 | `incomplete_response` | The translation came back incomplete. Try again. |
 
+## Corrections from reviewers
+
+With Supertext Localization Review, point the client at its review service (`baseUrl`) and fetch the corrections reviewers made, for content you don't translate again. Use your own `data-st-id`s (build the document yourself, `translateHtml`) so `getSegmentId()` tells you the field; see the integration guide → *Corrections from reviewers*.
+
+```java
+List<Correction> corrections = client.pendingCorrections("de-CH", null, null);  // all pages
+// write c.getHtml() where c.getSegmentId() points, if the field still holds c.getPreviousHtml()
+client.acknowledgeCorrections(corrections);                                     // → int accepted
+```
+
+Against Supertext's API these throw `NOT_FOUND`.
+
 ## API key check
 
 Behaviour shared by all Supertext SDKs: `spec/api-key-check.json`.

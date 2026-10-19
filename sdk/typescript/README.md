@@ -52,6 +52,18 @@ const html = await client.translateHtml('<!DOCTYPE html><html>…</html>', 'fr',
 
 Lower-level steps, if you need them: `submit()`, `getStatus()`, `waitUntilDone()`, `download()`, `delete()` (never throws). `validateApiKey()` checks the key without cost (for a "test connection" button).
 
+## Corrections from reviewers
+
+With Supertext Localization Review, point the client at its review service (`baseUrl`) and fetch the corrections reviewers made, for content you don't translate again. Use your own `data-st-id`s (build the document yourself, `translateHtml`) so `segmentId` tells you the field; see the integration guide → *Corrections from reviewers*.
+
+```ts
+const corrections = await client.pendingCorrections({ targetLang: 'de-CH' })  // all pages
+// write c.html where c.segmentId points, if the field still holds c.previousHtml
+await client.acknowledgeCorrections(corrections)                              // → number accepted
+```
+
+Against Supertext's API these throw `not_found`.
+
 ## API key check
 
 `client.checkApiKey()` is the automatic API key check Supertext's plugins run on every settings save ([guide, section 14](../../docs/integration-guide.md#14-the-api-key-check-and-version-reports)): `GET features` with a 10 s timeout, never throws. No Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (supertext.com → Integrations → API; requires the Admin role).

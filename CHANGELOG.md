@@ -4,6 +4,10 @@ All SDKs in this repository share one version. Format: one section per release, 
 
 ## Unreleased
 
+### Added
+
+- **Corrections from reviewers** (all five SDKs, `spec/corrections.json`, integration guide → *Corrections from reviewers*, API reference → *Review service*): with Supertext Localization Review, `pendingCorrections(targetLang?, sourceLang?, politeness?)` fetches the corrections the integration hasn't written into the CMS yet (all pages; `Correction` with `id`, `segmentId` = the `data-st-id` sent, `sourceLang`, `targetLang`, `politeness`, `sourceHtml`, `previousHtml`, `html`, `status`, `correctedAt`, `version`) and `acknowledgeCorrections(corrections)` confirms the ones written (batches of 1000; returns the number accepted). Only the review service answers them; against Supertext's API they throw `not_found`. TypeScript `pendingCorrections`/`acknowledgeCorrections`, PHP `pendingCorrections()`/`acknowledgeCorrections()`, Python `pending_corrections`/`acknowledge_corrections`, .NET `PendingCorrectionsAsync`/`AcknowledgeCorrectionsAsync`, Java `pendingCorrections`/`acknowledgeCorrections`.
+
 ### Changed
 
 - Integration guide → *Translation files*: Supertext's web app keeps an HTML file's head and `data-st-id` attributes (confirmed), so the translated file imports as it is.

@@ -12,7 +12,9 @@ use Supertext\Sdk\Files\TranslationFile;
 use Supertext\Sdk\Files\TranslationFileError;
 use Supertext\Sdk\Files\TranslationFiles;
 use Supertext\Sdk\Http\HttpResponse;
+use Supertext\Sdk\Http\HttpRequest;
 use Supertext\Sdk\V1\Client;
+use Supertext\Sdk\V1\Correction;
 use Supertext\Sdk\V1\HtmlDocument;
 use Supertext\Sdk\V1\Languages;
 use Supertext\Sdk\V1\Protocol;
@@ -478,5 +480,79 @@ final class SpecTest extends TestCase
     {
         $file = new TranslationFile(TranslationFile::HTML, 'P', 'r', 'de', 'fr', []);
         self::assertSame(TranslationFileError::INVALID_FILE, self::fileErrorCode(static fn () => TranslationFiles::importTranslations($file, [])));
+    }
+
+    // ---- corrections.json ----
+
+    /** @return array<string, array{array<string, mixed>}> */
+    public static function correctionScenarios(): array
+    {
+        return self::named(self::spec('corrections.json')['scenarios']);
+    }
+
+    /** @param array<string, mixed> $c */
+    #[DataProvider('correctionScenarios')]
+    public function testCorrections(array $c): void
+    {
+        $exchanges = $c['exchanges'];
+        $version = $c['generate']['version'] ?? '';
+        $ackBody = static function (int $from, int $to) use ($version): string {
+            $items = [];
+            for ($i = $from; $i <= $to; $i++) {
+                $items[] = ['id' => (string) $i, 'version' => $version];
+            }
+
+            return (string) json_encode(['corrections' => $items]);
+        };
+        $transport = FakeTransport::handler(static function (HttpRequest $request) use (&$exchanges, $ackBody): HttpResponse {
+            $x = array_shift($exchanges);
+            self::assertNotNull($x, 'unexpected ' . $request->method . ' ' . $request->url);
+            self::assertSame($x['request']['method'], $request->method);
+            self::assertSame('https://review.test/v1/' . $x['request']['path'], $request->url);
+            if (isset($x['request']['body'])) {
+                self::assertSame($x['request']['body'], $request->body);
+            }
+            if (isset($x['request']['bodyIds'])) {
+                self::assertSame($ackBody($x['request']['bodyIds'][0], $x['request']['bodyIds'][1]), $request->body);
+            }
+            if ($request->body !== null) {
+                self::assertSame('application/json', $request->headers['Content-Type']);
+            }
+
+            return new HttpResponse($x['response']['status'], $x['response']['body']);
+        });
+        $client = new Client('key-1', 'https://review.test/v1/', transport: $transport, sleep: static function (float $s): void {
+        });
+
+        $corrections = [];
+        if (isset($c['generate'])) {
+            for ($i = 1; $i <= $c['generate']['count']; $i++) {
+                $corrections[] = new Correction((string) $i, '', null, '', 'default', '', '', '', '', '', $version);
+            }
+        } else {
+            foreach ($c['corrections'] ?? [] as $item) {
+                $corrections[] = new Correction($item['id'], '', null, '', 'default', '', '', '', '', '', $item['version']);
+            }
+        }
+        $run = static function () use ($c, $client, $corrections): mixed {
+            if ($c['call'] === 'pending') {
+                $o = $c['options'];
+
+                return array_map(static fn (Correction $x): array => get_object_vars($x), $client->pendingCorrections($o['targetLang'] ?? null, $o['sourceLang'] ?? null, $o['politeness'] ?? null));
+            }
+
+            return $client->acknowledgeCorrections($corrections);
+        };
+        if (isset($c['error'])) {
+            try {
+                $run();
+                self::fail('expected ' . $c['error']);
+            } catch (SupertextException $e) {
+                self::assertSame($c['error'], $e->errorCode);
+            }
+        } else {
+            self::assertSame($c['result'], $run());
+        }
+        self::assertSame([], $exchanges);
     }
 }

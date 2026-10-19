@@ -5,6 +5,7 @@ import {
   DEFAULT_MAX_CHARACTERS,
   HtmlDocument,
   Languages,
+  SupertextClient,
   SupertextError,
   type SupertextErrorCode,
   authHeader,
@@ -164,4 +165,40 @@ describe('spec/translation-file.json', () => {
   it('a file not returned by read() is refused', () => {
     expect(code(() => TranslationFiles.importTranslations({ format: 'html', plugin: 'P', reference: 'r', sourceLanguage: 'de', targetLanguage: 'fr', units: [] }, []))).toBe('invalid_file')
   })
+})
+
+describe('spec/corrections.json', () => {
+  const s = spec('corrections.json')
+  const ackBody = (from: number, to: number, version: string) =>
+    JSON.stringify({ corrections: Array.from({ length: to - from + 1 }, (_, i) => ({ id: String(from + i), version })) })
+  for (const c of s.scenarios) {
+    it(c.name, async () => {
+      const exchanges = [...c.exchanges]
+      const client = new SupertextClient('key-1', {
+        baseUrl: 'https://review.test/v1/',
+        sleep: async () => {},
+        fetch: async (url, init) => {
+          const x = exchanges.shift()
+          expect(x, `unexpected ${init.method} ${url}`).toBeDefined()
+          expect(init.method).toBe(x.request.method)
+          expect(url).toBe(`https://review.test/v1/${x.request.path}`)
+          const body = init.body ? new TextDecoder().decode(init.body as ArrayBuffer) : undefined
+          if (x.request.body !== undefined) expect(body).toBe(x.request.body)
+          if (x.request.bodyIds) expect(body).toBe(ackBody(x.request.bodyIds[0], x.request.bodyIds[1], c.generate.version))
+          if (body !== undefined) expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+          return new Response(x.response.body, { status: x.response.status })
+        },
+      })
+      const corrections = c.generate
+        ? Array.from({ length: c.generate.count }, (_, i) => ({ id: String(i + 1), version: c.generate.version }))
+        : c.corrections
+      const run = () => (c.call === 'pending' ? client.pendingCorrections(c.options) : client.acknowledgeCorrections(corrections))
+      if (c.error) {
+        await expect(run()).rejects.toMatchObject({ code: c.error })
+      } else {
+        expect(await run()).toEqual(c.result)
+      }
+      expect(exchanges).toEqual([])
+    })
+  }
 })

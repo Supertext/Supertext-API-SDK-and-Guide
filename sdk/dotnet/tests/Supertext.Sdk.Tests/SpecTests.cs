@@ -20,6 +20,105 @@ public class SpecTests
     public static IEnumerable<object[]> BatchingCases() => Spec.Cases("batching.json", "cases", "name");
     public static IEnumerable<object[]> HttpErrorCases() => Spec.Cases("errors.json", "http");
     public static IEnumerable<object[]> FileStatusCases() => Spec.Cases("errors.json", "fileStatus");
+    public static IEnumerable<object[]> CorrectionCases() => Spec.Cases("corrections.json", "scenarios", "name");
+
+    [Theory]
+    [MemberData(nameof(CorrectionCases))]
+    public async Task Corrections(string name, string json)
+    {
+        _ = name;
+        var c = JsonDocument.Parse(json).RootElement;
+        var exchanges = new Queue<JsonElement>(c.GetProperty("exchanges").EnumerateArray());
+        var version = c.TryGetProperty("generate", out var gen) ? gen.Str("version")! : "";
+        static string AckBody(int from, int to, string version) =>
+            "{\"corrections\":[" + string.Join(",", Enumerable.Range(from, to - from + 1).Select(i => $"{{\"id\":\"{i}\",\"version\":\"{version}\"}}")) + "]}";
+        var api = new FakeApi
+        {
+            Respond = r =>
+            {
+                Assert.True(exchanges.Count > 0, $"unexpected {r.Method} {r.Uri}");
+                var x = exchanges.Dequeue();
+                var req = x.GetProperty("request");
+                Assert.Equal(req.Str("method"), r.Method.Method);
+                Assert.Equal("https://review.test/v1/" + req.Str("path"), r.Uri.OriginalString);
+                var body = r.Body.Length == 0 ? null : System.Text.Encoding.UTF8.GetString(r.Body);
+                if (req.Str("body") is { } expected)
+                {
+                    Assert.Equal(expected, body);
+                }
+                if (req.TryGetProperty("bodyIds", out var ids))
+                {
+                    Assert.Equal(AckBody(ids[0].GetInt32(), ids[1].GetInt32(), version), body);
+                }
+                if (body is not null)
+                {
+                    Assert.Equal("application/json", r.ContentType);
+                }
+                var res = x.GetProperty("response");
+                return FakeApi.Text(res.GetProperty("status").GetInt32(), res.Str("body")!);
+            },
+        };
+        var client = new SupertextClient("key-1", new SupertextClientOptions
+        {
+            BaseUrl = "https://review.test/v1/",
+            HttpClient = new HttpClient(api),
+            Sleep = (_, _) => Task.CompletedTask,
+        });
+        var corrections = new List<Correction>();
+        if (c.TryGetProperty("generate", out var g))
+        {
+            for (var i = 1; i <= g.GetProperty("count").GetInt32(); i++)
+            {
+                corrections.Add(new Correction(i.ToString(System.Globalization.CultureInfo.InvariantCulture), "", null, "", Politeness.Default, "", "", "", "", "", version));
+            }
+        }
+        else if (c.TryGetProperty("corrections", out var list))
+        {
+            corrections.AddRange(list.EnumerateArray().Select(i => new Correction(i.Str("id")!, "", null, "", Politeness.Default, "", "", "", "", "", i.Str("version")!)));
+        }
+
+        async Task<string> Run()
+        {
+            if (c.Str("call") == "pending")
+            {
+                var o = c.GetProperty("options");
+                Politeness? politeness = o.Str("politeness") switch
+                {
+                    null => null,
+                    "more" => Politeness.More,
+                    "less" => Politeness.Less,
+                    _ => Politeness.Default,
+                };
+                var found = await client.PendingCorrectionsAsync(o.Str("targetLang"), o.Str("sourceLang"), politeness);
+                return JsonSerializer.Serialize(found.Select(x => new Dictionary<string, string?>
+                {
+                    ["id"] = x.Id,
+                    ["segmentId"] = x.SegmentId,
+                    ["sourceLang"] = x.SourceLang,
+                    ["targetLang"] = x.TargetLang,
+                    ["politeness"] = x.Politeness switch { Politeness.More => "more", Politeness.Less => "less", _ => "default" },
+                    ["sourceHtml"] = x.SourceHtml,
+                    ["previousHtml"] = x.PreviousHtml,
+                    ["html"] = x.Html,
+                    ["status"] = x.Status,
+                    ["correctedAt"] = x.CorrectedAt,
+                    ["version"] = x.Version,
+                }));
+            }
+            return JsonSerializer.Serialize(await client.AcknowledgeCorrectionsAsync(corrections));
+        }
+
+        if (c.Str("error") is { } error)
+        {
+            var e = await Assert.ThrowsAsync<SupertextException>(Run);
+            Assert.Equal(error, e.Code);
+        }
+        else
+        {
+            Assert.Equal(JsonSerializer.Serialize(c.GetProperty("result")), await Run());
+        }
+        Assert.Empty(exchanges);
+    }
 
     [Theory]
     [MemberData(nameof(AuthCases))]

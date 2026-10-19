@@ -12,6 +12,7 @@ Every SDK in this repository loads these files in its tests and must pass every 
 | [`batching.json`](batching.json) | Splitting many segments into documents under the size limit |
 | [`translation-file.json`](translation-file.json) | Translation files: exporting segments as XLIFF 1.2 and HTML (byte-exact), the source checksum, reading files back (metadata, hostile and broken files) and importing translations (statuses, markup only from the current source) |
 | [`api-key-check.json`](api-key-check.json) | The API key check `checkApiKey()`: the key fingerprint and how the answer becomes `ok`/`invalid`/`missing`/`unreachable`/`error` (version reports that use it are Supertext Plugin Health's, in the Commando Center repository) |
+| [`corrections.json`](corrections.json) | Corrections from reviewers (Supertext Localization Review's review service): the requests, paging, which items count, the acknowledge body and batches |
 | [`conformance.json`](conformance.json) | End-to-end scenarios against the [stand-in](../stand-in/stand-in.mjs) (`node stand-in/conformance.mjs -- <program>`) |
 
 Changing a vector changes all five SDKs: update the SDKs and their tests in the same commit, and note the behaviour change in `CHANGELOG.md`.

@@ -137,6 +137,18 @@ except v1.SupertextError as error:
         ...
 ```
 
+## Corrections from reviewers
+
+With Supertext Localization Review, point the client at its review service (`base_url`) and fetch the corrections reviewers made, for content you don't translate again. Use your own `data-st-id`s (build the document yourself, `translate_html`) so `segment_id` tells you the field; see the integration guide → *Corrections from reviewers*.
+
+```python
+corrections = client.pending_corrections("de-CH")  # list[Correction], all pages
+# write c.html where c.segment_id points, if the field still holds c.previous_html
+client.acknowledge_corrections(corrections)         # → int accepted
+```
+
+Against Supertext's API these raise `not_found`.
+
 ## API key check
 
 `client.check_api_key()` sends `GET features` (at most 10 s) and never raises (test vectors: `spec/api-key-check.json`). It returns a frozen `ApiKeyCheck` with `status` (`ok`, `invalid` for 401/403, `missing` for a blank key without a request, `unreachable` for no answer or 5xx, `error` for anything else), `checked_at` (`2026-10-13T08:00:00Z`), `http_status`, `error_code` (the API's, at most 100 characters) and `fingerprint` (`api_key_fingerprint(key)`, SHA-256 of the key, to notice a changed key; the key itself is never stored or sent). `to_dict()` gives the camelCase form (`status`, `checkedAt`, `httpStatus`, `errorCode`, `fingerprint`). Show the result on the settings page; for `invalid` or `missing`, show the links: No Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (supertext.com → Integrations → API; requires the Admin role).

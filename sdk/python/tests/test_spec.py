@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
 from conftest import FakeTransport, json_response, make_client, spec, text_response
 
+from supertext.transport import HttpRequest, HttpResponse
 from supertext.v1 import (
     DEFAULT_MAX_CHARACTERS,
+    Correction,
     ErrorCode,
     HtmlDocument,
     Languages,
     Segment,
+    SupertextClient,
     SupertextError,
     auth_header,
     languages,
@@ -182,3 +186,68 @@ def test_batching(case: dict[str, Any]) -> None:
 
 def test_default_max_characters() -> None:
     assert BATCHING["defaultMaxCharacters"] == DEFAULT_MAX_CHARACTERS
+
+
+CORRECTIONS = spec("corrections.json")
+
+
+def _ack_body(start: int, end: int, version: str) -> str:
+    items = [{"id": str(i), "version": version} for i in range(start, end + 1)]
+    return json.dumps({"corrections": items}, separators=(",", ":"))
+
+
+@pytest.mark.parametrize("case", CORRECTIONS["scenarios"], ids=lambda c: c["name"])
+def test_corrections(case: dict[str, Any]) -> None:
+    exchanges = list(case["exchanges"])
+    version = case.get("generate", {}).get("version", "")
+
+    def transport(request: HttpRequest) -> HttpResponse:
+        assert exchanges, f"unexpected {request.method} {request.url}"
+        x = exchanges.pop(0)
+        assert request.method == x["request"]["method"]
+        assert request.url == "https://review.test/v1/" + x["request"]["path"]
+        body = request.body.decode("utf-8") if request.body is not None else None
+        if "body" in x["request"]:
+            assert body == x["request"]["body"]
+        if "bodyIds" in x["request"]:
+            assert body == _ack_body(x["request"]["bodyIds"][0], x["request"]["bodyIds"][1], version)
+        if body is not None:
+            assert request.headers["Content-Type"] == "application/json"
+        return HttpResponse(x["response"]["status"], x["response"]["body"].encode("utf-8"))
+
+    client = SupertextClient("key-1", base_url="https://review.test/v1/", transport=transport, sleep=lambda s: None)
+    if "generate" in case:
+        items = [{"id": str(i), "version": version} for i in range(1, case["generate"]["count"] + 1)]
+    else:
+        items = case.get("corrections", [])
+    corrections = [Correction(i["id"], "", None, "", "default", "", "", "", "", "", i["version"]) for i in items]
+
+    def run() -> object:
+        if case["call"] == "pending":
+            o = case["options"]
+            found = client.pending_corrections(o.get("targetLang"), o.get("sourceLang"), o.get("politeness"))
+            return [
+                {
+                    "id": c.id,
+                    "segmentId": c.segment_id,
+                    "sourceLang": c.source_lang,
+                    "targetLang": c.target_lang,
+                    "politeness": c.politeness,
+                    "sourceHtml": c.source_html,
+                    "previousHtml": c.previous_html,
+                    "html": c.html,
+                    "status": c.status,
+                    "correctedAt": c.corrected_at,
+                    "version": c.version,
+                }
+                for c in found
+            ]
+        return client.acknowledge_corrections(corrections)
+
+    if "error" in case:
+        with pytest.raises(SupertextError) as raised:
+            run()
+        assert raised.value.code == case["error"]
+    else:
+        assert run() == case["result"]
+    assert exchanges == []

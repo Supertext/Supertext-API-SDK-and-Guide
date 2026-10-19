@@ -159,6 +159,18 @@ $client = new Client($apiKey, transport: new SymfonyHttpTransport($httpClient));
 
 For Guzzle, send with `'http_errors' => false` and `'timeout' => $request->timeout`, and build the `HttpResponse` from the status, `(string) $response->getBody()` and the headers the same way.
 
+## Corrections from reviewers
+
+With Supertext Localization Review, point the client at its review service (`$baseUrl`) and fetch the corrections reviewers made, for content you don't translate again. Use your own `data-st-id`s (build the document yourself, `translateHtml()`) so `segmentId` tells you the field; see the integration guide → *Corrections from reviewers*.
+
+```php
+$corrections = $client->pendingCorrections('de-CH');  // list<Correction>, all pages
+// write $c->html where $c->segmentId points, if the field still holds $c->previousHtml
+$client->acknowledgeCorrections($corrections);        // → int accepted
+```
+
+Against Supertext's API these throw `not_found`.
+
 ## API key check
 
 Every Supertext plugin checks its API key automatically (test vectors: `spec/api-key-check.json`).

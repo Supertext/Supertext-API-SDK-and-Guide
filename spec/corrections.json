@@ -1,0 +1,289 @@
+{
+  "description": "Corrections for the CMS (Supertext Localization Review): reviewers correct translations on the website; the review service (a drop-in proxy for the API at its own base URL) remembers where each segment sits by the integration's data-st-id. These two calls are only answered by the review service; Supertext's API answers 404, which is not_found (errors.json). pendingCorrections(targetLang?, sourceLang?, politeness?): GET review/corrections with the query parameters target_lang, source_lang, politeness (each only when given, as given, percent-encoded like a URI component), then after (from the second page on), then limit=500, in this order. The answer is a JSON object {corrections: [...], next_after: string|null}; the SDK follows next_after as after until it is null, not a string of digits, or the same as the previous after, and at most 100 pages, and returns all items of all pages in order. An item is kept only when id, st_id, target_lang and html are non-empty strings (html may be any non-empty string) and version is 16 lowercase hex digits; otherwise it is skipped. A correction is: id, segmentId (st_id: the integration's own data-st-id, e.g. tl_content.12.text; only meaningful when the integration chose its ids), sourceLang (source_lang if a non-empty string, else null = detected), targetLang, politeness (more or less as given, anything else default), sourceHtml (source_html if a string, else empty), previousHtml (previous_html if a string, else empty: what the integration received for this place last, so it can check the field still holds it before overwriting an editor's change), html (what to write into the field: the corrected translation), status (if a string, else empty), correctedAt (corrected_at if a string, else empty), version. A body that isn't a JSON object, or whose corrections isn't an array, gives no items for that page and ends paging. acknowledgeCorrections(corrections): POST review/corrections/acknowledge with Content-Type application/json and the body {\"corrections\":[{\"id\":\"…\",\"version\":\"…\"},…]} (exactly this, no whitespace, in the given order, ids and versions as JSON strings), at most 1000 items per request (more: several requests in order); returns the sum of the answers' acknowledged numbers (not a non-negative integer: 0). No corrections: no request, 0. Acknowledge only after writing the html into the CMS; a correction made in the meantime has another version and stays pending. Requests go through the same auth, User-Agent, retries (429) and error mapping as every other call.",
+  "scenarios": [
+    {
+      "name": "two pages, filters, items in order",
+      "call": "pending",
+      "options": {
+        "targetLang": "de-CH",
+        "sourceLang": "en",
+        "politeness": "more"
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "review/corrections?target_lang=de-CH&source_lang=en&politeness=more&limit=500"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"corrections\": [{\"id\": \"3\", \"st_id\": \"tl_content.1.text\", \"source_lang\": \"en\", \"target_lang\": \"de-CH\", \"politeness\": \"default\", \"source_html\": \"Welcome\", \"html\": \"Herzlich willkommen\", \"status\": \"corrected\", \"corrected_at\": \"2026-10-19T08:00:00.000Z\", \"version\": \"0123456789abcdef\", \"previous_html\": \"Willkommen\"}, {\"id\": \"7\", \"st_id\": \"tl_page.2.title\", \"source_lang\": null, \"target_lang\": \"de-CH\", \"politeness\": \"more\", \"source_html\": \"About <b>us</b>\", \"html\": \"Über <b>uns</b>\", \"status\": \"approved\", \"corrected_at\": \"2026-10-19T08:00:00.000Z\", \"version\": \"0123456789abcdef\", \"previous_html\": \"Über uns\"}], \"next_after\": \"7\"}"
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "review/corrections?target_lang=de-CH&source_lang=en&politeness=more&after=7&limit=500"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"corrections\": [{\"id\": 8, \"st_id\": \"x\", \"target_lang\": \"de-CH\", \"html\": \"a\", \"version\": \"0123456789abcdef\"}, {\"id\": \"9\", \"st_id\": \"\", \"target_lang\": \"de-CH\", \"html\": \"a\", \"version\": \"0123456789abcdef\"}, {\"id\": \"10\", \"st_id\": \"x\", \"target_lang\": \"de-CH\", \"html\": \"a\"}, {\"id\": \"11\", \"st_id\": \"x\", \"target_lang\": \"de-CH\", \"html\": \"a\", \"version\": \"ZZ\"}, {\"id\": \"12\", \"st_id\": \"news.4.teaser\", \"source_lang\": \"en\", \"target_lang\": \"de-CH\", \"politeness\": \"whatever\", \"source_html\": null, \"html\": \"Neu: <i>Winter</i>\", \"status\": 5, \"corrected_at\": null, \"version\": \"0123456789abcdef\"}], \"next_after\": null}"
+          }
+        }
+      ],
+      "result": [
+        {
+          "id": "3",
+          "segmentId": "tl_content.1.text",
+          "sourceLang": "en",
+          "targetLang": "de-CH",
+          "politeness": "default",
+          "sourceHtml": "Welcome",
+          "previousHtml": "Willkommen",
+          "html": "Herzlich willkommen",
+          "status": "corrected",
+          "correctedAt": "2026-10-19T08:00:00.000Z",
+          "version": "0123456789abcdef"
+        },
+        {
+          "id": "7",
+          "segmentId": "tl_page.2.title",
+          "sourceLang": null,
+          "targetLang": "de-CH",
+          "politeness": "more",
+          "sourceHtml": "About <b>us</b>",
+          "previousHtml": "Über uns",
+          "html": "Über <b>uns</b>",
+          "status": "approved",
+          "correctedAt": "2026-10-19T08:00:00.000Z",
+          "version": "0123456789abcdef"
+        },
+        {
+          "id": "12",
+          "segmentId": "news.4.teaser",
+          "sourceLang": "en",
+          "targetLang": "de-CH",
+          "politeness": "default",
+          "sourceHtml": "",
+          "previousHtml": "",
+          "html": "Neu: <i>Winter</i>",
+          "status": "",
+          "correctedAt": "",
+          "version": "0123456789abcdef"
+        }
+      ]
+    },
+    {
+      "name": "no filters, nothing pending",
+      "call": "pending",
+      "options": {},
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "review/corrections?limit=500"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"corrections\": [], \"next_after\": null}"
+          }
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "a repeated next_after ends paging",
+      "call": "pending",
+      "options": {
+        "targetLang": "fr-CH"
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "review/corrections?target_lang=fr-CH&limit=500"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"corrections\": [{\"id\": \"1\", \"st_id\": \"a\", \"source_lang\": \"en\", \"target_lang\": \"fr-CH\", \"politeness\": \"default\", \"source_html\": \"Welcome\", \"html\": \"x\", \"status\": \"corrected\", \"corrected_at\": \"2026-10-19T08:00:00.000Z\", \"version\": \"0123456789abcdef\", \"previous_html\": \"x0\"}], \"next_after\": \"1\"}"
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "review/corrections?target_lang=fr-CH&after=1&limit=500"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"corrections\": [{\"id\": \"2\", \"st_id\": \"b\", \"source_lang\": \"en\", \"target_lang\": \"fr-CH\", \"politeness\": \"default\", \"source_html\": \"Welcome\", \"html\": \"y\", \"status\": \"corrected\", \"corrected_at\": \"2026-10-19T08:00:00.000Z\", \"version\": \"0123456789abcdef\", \"previous_html\": \"y0\"}], \"next_after\": \"1\"}"
+          }
+        }
+      ],
+      "result": [
+        {
+          "id": "1",
+          "segmentId": "a",
+          "sourceLang": "en",
+          "targetLang": "fr-CH",
+          "politeness": "default",
+          "sourceHtml": "Welcome",
+          "previousHtml": "x0",
+          "html": "x",
+          "status": "corrected",
+          "correctedAt": "2026-10-19T08:00:00.000Z",
+          "version": "0123456789abcdef"
+        },
+        {
+          "id": "2",
+          "segmentId": "b",
+          "sourceLang": "en",
+          "targetLang": "fr-CH",
+          "politeness": "default",
+          "sourceHtml": "Welcome",
+          "previousHtml": "y0",
+          "html": "y",
+          "status": "corrected",
+          "correctedAt": "2026-10-19T08:00:00.000Z",
+          "version": "0123456789abcdef"
+        }
+      ]
+    },
+    {
+      "name": "not JSON",
+      "call": "pending",
+      "options": {},
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "review/corrections?limit=500"
+          },
+          "response": {
+            "status": 200,
+            "body": "<html>ok</html>"
+          }
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "Supertext's API, not the review service",
+      "call": "pending",
+      "options": {
+        "targetLang": "de-CH"
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "review/corrections?target_lang=de-CH&limit=500"
+          },
+          "response": {
+            "status": 404,
+            "body": "{\"error_code\":\"NOT_FOUND\"}"
+          }
+        }
+      ],
+      "error": "not_found"
+    },
+    {
+      "name": "acknowledge",
+      "call": "acknowledge",
+      "corrections": [
+        {
+          "id": "3",
+          "version": "0123456789abcdef"
+        },
+        {
+          "id": "7",
+          "version": "fedcba9876543210"
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "review/corrections/acknowledge",
+            "body": "{\"corrections\":[{\"id\":\"3\",\"version\":\"0123456789abcdef\"},{\"id\":\"7\",\"version\":\"fedcba9876543210\"}]}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"acknowledged\":2}"
+          }
+        }
+      ],
+      "result": 2
+    },
+    {
+      "name": "an odd answer counts 0",
+      "call": "acknowledge",
+      "corrections": [
+        {
+          "id": "3",
+          "version": "0123456789abcdef"
+        }
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "review/corrections/acknowledge",
+            "body": "{\"corrections\":[{\"id\":\"3\",\"version\":\"0123456789abcdef\"}]}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"acknowledged\":\"2\"}"
+          }
+        }
+      ],
+      "result": 0
+    },
+    {
+      "name": "nothing to acknowledge",
+      "call": "acknowledge",
+      "corrections": [],
+      "exchanges": [],
+      "result": 0
+    },
+    {
+      "name": "more than 1000: several requests",
+      "call": "acknowledge",
+      "generate": {
+        "count": 1001,
+        "version": "0123456789abcdef"
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "review/corrections/acknowledge",
+            "bodyIds": [
+              1,
+              1000
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"acknowledged\":1000}"
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "review/corrections/acknowledge",
+            "bodyIds": [
+              1001,
+              1001
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"acknowledged\":1}"
+          }
+        }
+      ],
+      "result": 1001
+    }
+  ],
+  "notes": "generate: corrections with ids \"1\"…\"count\" (as strings) and the given version. bodyIds [from, to]: the request body is the acknowledge body for ids from…to with that version."
+}

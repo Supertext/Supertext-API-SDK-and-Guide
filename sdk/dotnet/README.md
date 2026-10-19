@@ -99,6 +99,18 @@ Everything the API or the client can't handle is a `SupertextException` with `Co
 | `timeout` | Not done within `Timeout` | The translation is taking too long; try again or translate less at once |
 | `incomplete_response` | Empty download or missing texts (`Detail`: `missing: key1, key2`) | The translation came back incomplete; try again |
 
+## Corrections from reviewers
+
+With Supertext Localization Review, point the client at its review service (`BaseUrl`) and fetch the corrections reviewers made, for content you don't translate again. Use your own `data-st-id`s (build the document yourself, `TranslateHtmlAsync`) so `SegmentId` tells you the field; see the integration guide → *Corrections from reviewers*.
+
+```csharp
+var corrections = await client.PendingCorrectionsAsync("de-CH");  // all pages
+// write c.Html where c.SegmentId points, if the field still holds c.PreviousHtml
+await client.AcknowledgeCorrectionsAsync(corrections);            // → number accepted
+```
+
+Against Supertext's API these throw `not_found`.
+
 ## API key check
 
 `CheckApiKeyAsync()` calls `GET features` (no cost, at most `ApiKeyCheck.Timeout` = 10 s, the usual 429 retries) and never throws (test vectors: `spec/api-key-check.json`). It returns an `ApiKeyCheck` (`Status`: `ok`, `invalid` (401/403), `missing` (blank key, nothing sent), `unreachable` (no answer or 5xx), `error`; plus `CheckedAt`, `HttpStatus`, `ErrorCode` and `Fingerprint`, a SHA-256 of the key from `ApiKeyCheck.FingerprintOf(key)` to notice a changed one; the key itself is never kept). Show it on your settings page. If it says `invalid` or `missing`: no Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (supertext.com → Integrations → API; requires the Admin role).

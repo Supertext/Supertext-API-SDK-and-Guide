@@ -279,6 +279,26 @@ Full list: [`spec/errors.json`](../spec/errors.json).
 - **Copy, then translate.** Start the target from a copy of the source (structure, media, settings), then write the translated fields. Don't copy fields that belong to the target (language, URL path, relations to other translations).
 - **Clear the system's caches** after writing, if it caches typed objects (Orchard's content parts, Silverstripe's versioned objects): otherwise the old value gets saved back.
 
+### Corrections from reviewers (Supertext Localization Review)
+
+With [Supertext Localization Review](https://github.com/Supertext/Localization-Review-Supertext-Translation), customers and Supertext linguists correct translations on the website itself. The integration then talks to its **review service** instead of the API (a different base URL, e.g. a *Translation review* setting): it answers exactly like the API and passes everything on with the customer's key. Corrections come back two ways:
+
+- **On the next translation**: the review service returns the corrected text for segments it knows. Nothing to build.
+- **Without translating again**: fetch the corrections the integration hasn't written yet and write them into the CMS. `pendingCorrections(targetLang?, sourceLang?, politeness?)` returns them (all pages); each has `segmentId` (the `data-st-id` you sent), `html` (the corrected text), `previousHtml` (what you received last for that place) and a `version`. After writing, call `acknowledgeCorrections(corrections)`; only the fetched version counts, so a correction made meanwhile stays pending.
+
+```ts
+for (const c of await client.pendingCorrections({ targetLang: 'de-CH' })) {
+  const field = findField(c.segmentId)               // your own id → the field
+  if (field && field.value === c.previousHtml) field.value = c.html  // don't overwrite an editor's change
+}
+await client.acknowledgeCorrections(written)          // the ones you wrote (or decided to skip)
+```
+
+- **Use your own `data-st-id`s** that say where the text belongs (Contao: `tl_content.12.text`), i.e. build the document yourself and translate it with `translateHtml`. `translateTexts` and `HtmlDocument` number the segments (`0`, `1`, …) per document, which says nothing about the field afterwards.
+- **Don't overwrite an editor's change**: write `html` only when the field still holds `previousHtml`; otherwise show the correction to the editor, or skip it. Acknowledge what you wrote (and what you deliberately skipped, or it stays pending).
+- Only call these when the base URL is the review service: Supertext's API answers 404 (`not_found`). Run it in the background (a scheduled job or an *Apply review corrections* button), like translating.
+- The review service tells plugins apart by the name in the User-Agent (`userAgent`), so keep it the same across versions.
+
 ## 12. Security
 
 - Call Supertext **from the server only**, so the browser never sees the key.
