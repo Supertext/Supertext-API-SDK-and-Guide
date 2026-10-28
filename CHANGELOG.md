@@ -12,6 +12,8 @@ All SDKs in this repository share one version. Format: one section per release, 
 
 - Tested in CI on Node 26, Python 3.14 and 3.15, Java 25 and the .NET 10 runtime (the `net8.0` package with roll-forward), in addition to the versions tested before. TypeScript SDK built and type-checked with TypeScript 6.0 (was 5.9); the published code is unchanged.
 
+- PHP SDK: tested in CI on PHP 8.5. No more `curl_close()` (deprecated in PHP 8.5, without effect since PHP 8.0), and the UTF-8 encoding helpers pass `chr()` values PHPStan can prove are bytes; behaviour unchanged.
+
 - Integration guide → *Translation files*: Supertext's web app keeps an HTML file's head and `data-st-id` attributes (confirmed), so the translated file imports as it is.
 
 ## 0.5.0 — 2026-10-18
